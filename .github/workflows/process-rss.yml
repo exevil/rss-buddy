@@ -14,10 +14,15 @@ on:
 jobs:
   process-rss:
     runs-on: ubuntu-latest
+    # Use the github-pages environment where all secrets are stored
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: write
       pages: write
       id-token: write
+    
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
@@ -54,6 +59,7 @@ jobs:
             mv processed_state.json processed_feeds/
           fi
           
+      # Use secrets from the github-pages environment
       - name: Process RSS feeds
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

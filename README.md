@@ -23,6 +23,12 @@ This project uses two branches for different purposes:
 - **main**: Contains the source code and all scripts
 - **output**: Contains only the processed feeds and state data
 
+The main codebase consists of these key files:
+- `rss_processor.py`: The main script that processes RSS feeds and creates filtered outputs
+- `state_manager.py`: Manages the state tracking to avoid reprocessing articles
+- `generate_pages.py`: Creates HTML pages for browsing the feeds
+- `rss-buddy.sh`: A convenience shell script to run the processor
+
 This separation keeps the repository clean and makes it easier to browse either the code or the generated feeds.
 
 ## Features
@@ -39,7 +45,7 @@ This separation keeps the repository clean and makes it easier to browse either 
 
 ### Configuration
 
-RSS Buddy can be configured using either environment variables or a `.env` file. Here's how to set it up:
+RSS Buddy uses environment variables for all configuration, which can be set either directly or through a `.env` file. Here's how to set it up:
 
 1. Copy the example environment file:
    ```

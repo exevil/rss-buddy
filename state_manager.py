@@ -87,10 +87,4 @@ class StateManager:
     def get_last_entry_date(self, feed_url):
         """Get the date of the last processed entry for the feed."""
         feed_state = self.get_processed_entries(feed_url)
-        return feed_state["last_entry_date"]
-    
-    def clean_old_entries(self, max_days=30):
-        """Clean entries older than max_days to prevent the state file from growing too large."""
-        # This would require storing dates with each entry
-        # For simplicity, we just limit the number of IDs per feed
-        pass 
+        return feed_state["last_entry_date"] 

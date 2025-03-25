@@ -4,7 +4,6 @@ import json
 import feedparser
 import datetime
 from dateutil import parser
-import openai
 from openai import OpenAI
 import xml.etree.ElementTree as ET
 from email.utils import formatdate
@@ -36,29 +35,24 @@ def get_env_int(var_name, default):
         print(f"Warning: Could not parse {var_name} as integer, using default {default}")
         return default
 
-# Configuration from environment variables
-# Load defaults from config.py if available
-try:
-    from config import RSS_FEEDS as DEFAULT_RSS_FEEDS
-    from config import USER_PREFERENCE_CRITERIA as DEFAULT_USER_PREFERENCE_CRITERIA
-    from config import DAYS_LOOKBACK as DEFAULT_DAYS_LOOKBACK
-    from config import AI_MODEL as DEFAULT_AI_MODEL
-    from config import SUMMARY_MAX_TOKENS as DEFAULT_SUMMARY_MAX_TOKENS
-except ImportError:
-    DEFAULT_RSS_FEEDS = [
-        "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
-        "https://www.wired.com/feed/rss"
-    ]
-    DEFAULT_USER_PREFERENCE_CRITERIA = """
-    When determining if an article should be shown in full or summarized, consider these factors:
-    - Technical deep dives in machine learning, AI, and quantum computing should be shown in FULL
-    - Breaking news about major tech companies should be shown in FULL
-    - General technology news can be SUMMARIZED
-    """
-    DEFAULT_DAYS_LOOKBACK = 7
-    DEFAULT_AI_MODEL = "gpt-4"
-    DEFAULT_SUMMARY_MAX_TOKENS = 150
+# Default configuration values
+DEFAULT_RSS_FEEDS = [
+    "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+    "https://www.wired.com/feed/rss"
+]
 
+DEFAULT_USER_PREFERENCE_CRITERIA = """
+When determining if an article should be shown in full or summarized, consider these factors:
+- Technical deep dives in machine learning, AI, and quantum computing should be shown in FULL
+- Breaking news about major tech companies should be shown in FULL
+- General technology news can be SUMMARIZED
+"""
+
+DEFAULT_DAYS_LOOKBACK = 7
+DEFAULT_AI_MODEL = "gpt-4"
+DEFAULT_SUMMARY_MAX_TOKENS = 150
+
+# Get configuration from environment variables, falling back to defaults
 RSS_FEEDS = get_env_list('RSS_FEEDS', DEFAULT_RSS_FEEDS)
 USER_PREFERENCE_CRITERIA = os.environ.get('USER_PREFERENCE_CRITERIA', DEFAULT_USER_PREFERENCE_CRITERIA)
 DAYS_LOOKBACK = get_env_int('DAYS_LOOKBACK', DEFAULT_DAYS_LOOKBACK)
@@ -123,22 +117,6 @@ def evaluate_article_preference(title, summary):
         print(f"Error determining preference: {e}")
         return "SUMMARY"  # Default to summary on error
 
-def summarize_article(title, content):
-    """Use OpenAI to generate a summary of an article."""
-    try:
-        response = client.chat.completions.create(
-            model=AI_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an assistant that summarizes articles concisely while preserving key information."},
-                {"role": "user", "content": f"Title: {title}\n\nContent: {content}\n\nPlease summarize this article in 1-2 sentences."}
-            ],
-            max_tokens=SUMMARY_MAX_TOKENS
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Error summarizing article: {e}")
-        return "Unable to generate summary."
-
 def create_consolidated_summary(articles):
     """Create a consolidated summary of multiple articles."""
     if not articles:
@@ -158,7 +136,7 @@ def create_consolidated_summary(articles):
                 {"role": "system", "content": "You are an assistant that creates a consolidated summary of multiple articles. Your task is to identify key themes and important stories, and organize them into a readable digest. Each article title you mention should be a clickable link to the original article."},
                 {"role": "user", "content": f"Here are {len(articles)} articles from the past {DAYS_LOOKBACK} days that I'm less interested in but still want a brief overview of:\n\n{article_list}\n\nPlease create a consolidated summary that organizes these into themes and highlights the most noteworthy stories. Format the response as a readable digest with HTML. Each article title you mention should be wrapped in an HTML link tag pointing to its original URL (e.g., <a href='article_url'>Article Title</a>)."}
             ],
-            max_tokens=SUMMARY_MAX_TOKENS * 2
+            max_tokens=SUMMARY_MAX_TOKENS * len(articles)
         )
         
         # Collect article data for the digest
