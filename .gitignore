@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment - contains installed packages
+venv/
+
+# Environment variables file (if used)
+.env
+
+# Logs
+*.log
+
+# Generated output (these should only be in the output branch)
+processed_feeds/
+docs/
+
+# macOS
+.DS_Store 
