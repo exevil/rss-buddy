@@ -69,8 +69,8 @@ jobs:
       - name: Process RSS feeds
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          RSS_FEEDS: ${{ secrets.RSS_FEEDS }}
-          USER_PREFERENCE_CRITERIA: ${{ secrets.USER_PREFERENCE_CRITERIA }}
+          RSS_FEEDS: ${{ vars.RSS_FEEDS }}
+          USER_PREFERENCE_CRITERIA: ${{ vars.USER_PREFERENCE_CRITERIA }}
           DAYS_LOOKBACK: ${{ vars.DAYS_LOOKBACK || secrets.DAYS_LOOKBACK }}
           AI_MODEL: ${{ vars.AI_MODEL || secrets.AI_MODEL }}
           SUMMARY_MAX_TOKENS: ${{ vars.SUMMARY_MAX_TOKENS || secrets.SUMMARY_MAX_TOKENS }}
