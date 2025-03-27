@@ -209,7 +209,7 @@ def create_consolidated_summary(articles, feed_url):
     # Helper function to create final digest entry
     def create_digest_entry(digest_id, content):
         return {
-            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
+            'title': f"[RSS Buddy]: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
             'description': content,
             'link': articles[0]['link'] if articles else "#",
             'pubDate': formatdate(datetime.datetime.now().timestamp()),
