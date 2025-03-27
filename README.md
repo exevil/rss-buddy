@@ -161,7 +161,7 @@ RSS Buddy tracks processed articles in a state file (`processed_state.json`) to 
 - Makes the tool ideal for scheduled runs (e.g., via GitHub Actions)
 - Ensures only new articles are processed each time
 
-The state file is stored in the `output` branch and is automatically maintained between runs.
+The state file is stored in GitHub Pages and is automatically maintained between runs.
 
 ## GitHub Actions and Pages Setup
 
@@ -174,19 +174,19 @@ You can automate RSS Buddy with GitHub Actions and publish the results with GitH
 5. Enable GitHub Pages in your repository settings, selecting the "GitHub Actions" as the source
 6. The included workflow will:
    - Run every 12 hours (configurable)
+   - Download the previous state file from GitHub Pages (if available)
    - Process your RSS feeds
-   - Store outputs in the `output` branch
    - Generate HTML pages for browsing the feeds
-   - Deploy to GitHub Pages
+   - Deploy everything to GitHub Pages (including the state file and processed feeds)
    - Maintain state between runs
 
 To manually trigger the workflow, go to the Actions tab in your repository and click "Run workflow".
 
 ## Output
 
-Processed RSS feeds are saved to the `output` branch with filenames based on the original feed titles. These XML files can be imported into any RSS reader.
+Processed RSS feeds are saved directly to GitHub Pages with filenames based on the original feed titles. These XML files can be imported into any RSS reader.
 
-If you're using GitHub Pages, you can access your processed feeds through a web interface at `https://yourusername.github.io/rss-buddy/`.
+You can access your processed feeds through a web interface at `https://yourusername.github.io/rss-buddy/`, or directly use the XML files as feed URLs in your RSS reader, like `https://yourusername.github.io/rss-buddy/my-feed-name.xml`.
 
 ## Customization
 

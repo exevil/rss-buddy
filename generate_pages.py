@@ -20,15 +20,34 @@ def generate_pages(input_dir='processed_feeds', output_dir='docs'):
     state_file = os.path.join(input_dir, 'processed_state.json')
     if os.path.exists(state_file):
         shutil.copy2(state_file, os.path.join(output_dir, 'processed_state.json'))
+        print(f"State file copied to {output_dir}/processed_state.json")
+    else:
+        print("Warning: State file not found")
     
     # Copy feed files if they exist
+    feed_count = 0
     if os.path.exists(input_dir):
         for file in os.listdir(input_dir):
             if file.endswith('.xml'):
                 # Create a copy in the output directory
-                with open(os.path.join(input_dir, file), 'rb') as src:
-                    with open(os.path.join(output_dir, file), 'wb') as dst:
+                src_path = os.path.join(input_dir, file)
+                dst_path = os.path.join(output_dir, file)
+                with open(src_path, 'rb') as src:
+                    with open(dst_path, 'wb') as dst:
                         dst.write(src.read())
+                feed_count += 1
+                print(f"Copied feed: {file}")
+    
+    print(f"Total feeds copied: {feed_count}")
+    
+    # Create a metadata file with information about when the feeds were last processed
+    metadata = {
+        "last_processed": datetime.now().isoformat(),
+        "feed_count": feed_count
+    }
+    
+    with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
+        json.dump(metadata, f, indent=2)
     
     feeds_list = []
     

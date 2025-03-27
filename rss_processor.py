@@ -63,6 +63,8 @@ SUMMARY_MAX_TOKENS = get_env_int('SUMMARY_MAX_TOKENS', DEFAULT_SUMMARY_MAX_TOKEN
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # Initialize state manager
+# Note: When running in GitHub Actions, state file is downloaded from GitHub Pages
+# before execution, and will be uploaded back to GitHub Pages after processing
 state_manager = StateManager()
 
 def generate_entry_id(entry):
