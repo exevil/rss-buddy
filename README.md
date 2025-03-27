@@ -33,6 +33,8 @@ The main codebase consists of these key files:
 - Creates streamlined RSS feeds that can be read by any RSS reader
 - Designed for automated execution with tools like GitHub Actions
 - Can generate a GitHub Pages site to browse processed feeds
+- Smart digest handling: only updates the digest ID when content changes, ensuring it only appears as "new" in RSS readers when actual changes occur
+- Precise lookback window: processes items from the past N days (configurable), always maintaining a rolling window
 
 ## Setup
 
@@ -60,7 +62,7 @@ RSS Buddy uses environment variables for all configuration, which can be set eit
 | `OPENAI_API_KEY`        | Your OpenAI API key (required)                | -                        |
 | `RSS_FEEDS`             | Comma-separated list of RSS feed URLs         | See example below        |
 | `USER_PREFERENCE_CRITERIA` | Criteria for determining article preferences | See example below        |
-| `DAYS_LOOKBACK`         | Number of days to look back for articles      | 7                        |
+| `DAYS_LOOKBACK`         | Number of days to look back for articles (creates a rolling window, e.g., 3 = last 72 hours) | 7                        |
 | `AI_MODEL`              | OpenAI model to use                           | gpt-4                    |
 | `SUMMARY_MAX_TOKENS`    | Maximum token length for summaries           | 150                      |
 

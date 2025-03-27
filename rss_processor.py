@@ -94,7 +94,7 @@ def is_recent(entry_date, days=DAYS_LOOKBACK):
     
     try:
         published_date = parser.parse(entry_date)
-        cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+        cutoff_date = state_manager.get_recent_cutoff_date(days)
         return published_date > cutoff_date
     except Exception as e:
         print(f"Error parsing date: {e}")
@@ -119,12 +119,23 @@ def evaluate_article_preference(title, summary):
         print(f"Error determining preference: {e}")
         return "SUMMARY"  # Default to summary on error
 
-def create_consolidated_summary(articles):
-    """Create a consolidated summary of multiple articles."""
+def create_consolidated_summary(articles, feed_url):
+    """Create a consolidated summary of multiple articles.
+    
+    Args:
+        articles: List of article dictionaries to consolidate
+        feed_url: The URL of the feed (used for state tracking)
+        
+    Returns:
+        dict: Consolidated entry dictionary or None if no articles
+    """
     if not articles:
         return None
     
     try:
+        # Get article IDs for state tracking
+        article_ids = [article['guid'] for article in articles]
+        
         # Prepare a list of article summaries for OpenAI
         article_list = ""
         for i, article in enumerate(articles, 1):
@@ -146,12 +157,23 @@ def create_consolidated_summary(articles):
         for article in articles:
             titles_with_links[article['title']] = article['link']
         
+        # Get digest content for hashing (to detect changes)
+        digest_content = response.choices[0].message.content.strip()
+        
+        # Update digest state - this generates a new ID only if content changed
+        digest_id, is_updated = state_manager.update_digest_state(feed_url, article_ids, digest_content)
+        
+        if is_updated:
+            print(f"  Digest content changed, generating new digest with ID: {digest_id}")
+        else:
+            print(f"  Digest content unchanged, keeping existing ID: {digest_id}")
+        
         consolidated_entry = {
-            'title': f"Digest: {len(articles)} Other Stories from the Past {DAYS_LOOKBACK} Days",
-            'description': response.choices[0].message.content.strip(),
+            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
+            'description': digest_content,
             'link': articles[0]['link'] if articles else "#",  # Use link of first article or placeholder
             'pubDate': formatdate(datetime.datetime.now().timestamp()),
-            'guid': f"digest-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'guid': digest_id,
             'consolidated': True,
             'included_articles': list(titles_with_links.keys()),
             'article_links': titles_with_links
@@ -173,12 +195,18 @@ def create_consolidated_summary(articles):
         
         description = f"<p>Summary of other stories:</p>\n{links_html}"
         
+        # Get article IDs for state tracking
+        article_ids = [article['guid'] for article in articles]
+        
+        # Update digest state with fallback content
+        digest_id, _ = state_manager.update_digest_state(feed_url, article_ids, description)
+        
         return {
-            'title': f"Digest: {len(articles)} Other Stories from the Past {DAYS_LOOKBACK} Days",
+            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
             'description': description,
             'link': articles[0]['link'] if articles else "#",
             'pubDate': formatdate(datetime.datetime.now().timestamp()),
-            'guid': f"digest-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'guid': digest_id,
             'consolidated': True,
             'included_articles': list(titles_with_links.keys()),
             'article_links': titles_with_links
@@ -257,43 +285,95 @@ def create_new_rss_feed(feed_title, feed_link, feed_description, entries):
     return filename
 
 def process_feeds():
-    """Main function to process all feeds."""
-    print(f"Starting RSS processing with {len(RSS_FEEDS)} feeds...")
+    """Main function to process all RSS feeds."""
+    print(f"Starting RSS processing with {DAYS_LOOKBACK} days lookback...")
     
-    # Stats for reporting
-    total_new_entries = 0
     total_processed_feeds = 0
+    total_new_entries = 0
     
+    # Process each RSS feed
     for feed_url in RSS_FEEDS:
-        print(f"Processing feed: {feed_url}")
-        feed = fetch_rss_feed(feed_url)
+        print(f"\nProcessing feed: {feed_url}")
         
+        # Fetch the feed
+        feed = fetch_rss_feed(feed_url)
         if not feed:
+            print(f"  Error: Could not fetch feed {feed_url}, skipping")
             continue
         
-        feed_title = feed.feed.get('title', 'Unknown Feed')
+        # Get feed info
+        feed_title = feed.feed.get('title', 'Untitled Feed')
         feed_link = feed.feed.get('link', feed_url)
-        feed_description = feed.feed.get('description', 'Processed RSS Feed')
+        feed_description = feed.feed.get('description', 'No Description')
         
-        # Separate entries into full and summary categories
+        print(f"  Title: {feed_title}")
+        
+        # Lists to store entries
         full_entries = []
         summary_entries = []
         new_entry_count = 0
+        already_processed_count = 0
         
+        # Cutoff date for recent entries
+        cutoff_date = state_manager.get_recent_cutoff_date(DAYS_LOOKBACK)
+        print(f"  Looking for entries newer than: {cutoff_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Get existing digest articles
+        existing_digest_articles = state_manager.get_articles_in_digest(feed_url)
+        
+        # Process each entry
         for entry in feed.entries:
-            # Generate a unique ID for this entry
+            # Generate a unique ID for the entry
             entry_id = generate_entry_id(entry)
             
-            # Check if we've already processed this entry
+            # Get the entry date
+            entry_date = entry.get('published', entry.get('updated'))
+            
+            # Skip if entry is already processed
             if state_manager.is_entry_processed(feed_url, entry_id):
-                print(f"  Skipping already processed: {entry.get('title', 'No Title')}")
+                already_processed_count += 1
+                
+                # Check if the entry should be reconsidered for the digest
+                # We need to check if it's within our lookback window, regardless of whether
+                # it was processed before
+                if entry_date and is_recent(entry_date, DAYS_LOOKBACK):
+                    title = entry.get('title', 'No Title')
+                    summary = entry.get('summary', entry.get('description', ''))
+                    content = entry.get('content', [{'value': summary}])[0].get('value', summary) if entry.get('content') else summary
+                    link = entry.get('link', '')
+                    
+                    # Format the date for the RSS feed
+                    formatted_date = formatdate(parser.parse(entry_date).timestamp()) if entry_date else formatdate(datetime.datetime.now().timestamp())
+                    
+                    # Determine if this was previously added to digest
+                    preference = "FULL"
+                    if entry_id in existing_digest_articles:
+                        preference = "SUMMARY"
+                    
+                    # Create entry dict with common fields
+                    entry_dict = {
+                        'title': title,
+                        'link': link,
+                        'summary': summary,
+                        'content': content,
+                        'pubDate': formatted_date,
+                        'preference': preference,
+                        'guid': entry_id
+                    }
+                    
+                    # Add to appropriate list but don't double-count
+                    if preference == "FULL":
+                        entry_dict['description'] = content
+                        full_entries.append(entry_dict)
+                    else:
+                        summary_entries.append(entry_dict)
+                
                 continue
                 
-            # Check if entry is recent (as a fallback)
-            entry_date = entry.get('published', entry.get('updated'))
-            if not is_recent(entry_date) and state_manager.get_last_entry_date(feed_url):
-                # Skip old entries if we have already processed entries for this feed
-                # This prevents reprocessing all entries when the script runs for the first time
+            # For entries not already processed:
+            
+            # Check if entry is recent (within lookback days)
+            if not is_recent(entry_date, DAYS_LOOKBACK):
                 continue
             
             title = entry.get('title', 'No Title')
@@ -334,6 +414,10 @@ def process_feeds():
             # Mark this entry as processed in our state manager
             state_manager.add_processed_entry(feed_url, entry_id, entry_date)
         
+        print(f"  Found {new_entry_count} new entries, {already_processed_count} already processed entries")
+        print(f"  Entries for full display: {len(full_entries)}")
+        print(f"  Entries for digest: {len(summary_entries)}")
+        
         # Process entries for output
         processed_entries = []
         
@@ -343,7 +427,7 @@ def process_feeds():
         
         # Create consolidated entry for summary entries
         if summary_entries:
-            consolidated_entry = create_consolidated_summary(summary_entries)
+            consolidated_entry = create_consolidated_summary(summary_entries, feed_url)
             if consolidated_entry:
                 processed_entries.append(consolidated_entry)
         
@@ -354,12 +438,12 @@ def process_feeds():
             total_new_entries += new_entry_count
             total_processed_feeds += 1
         else:
-            print(f"No new entries found for {feed_title}")
+            print(f"No entries found for {feed_title}")
     
     # Save the state after processing all feeds
     state_manager.save_state()
     
-    print(f"RSS processing complete! Processed {total_processed_feeds} feeds with {total_new_entries} total articles.")
+    print(f"RSS processing complete! Processed {total_processed_feeds} feeds with {total_new_entries} total new articles.")
 
 if __name__ == "__main__":
     process_feeds() 
