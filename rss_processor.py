@@ -102,16 +102,34 @@ def is_recent(entry_date, days=DAYS_LOOKBACK):
         print(f"Error parsing date: {e}")
         return False
 
-def evaluate_article_preference(title, summary):
-    """Use OpenAI to determine if an article should be shown in full or summarized."""
+def evaluate_article_preference(title, summary, feed_url=None):
+    """Use OpenAI to determine if an article should be shown in full or summarized.
+    
+    Args:
+        title: The article title
+        summary: The article summary or description
+        feed_url: The URL of the feed (for context in preference decisions)
+        
+    Returns:
+        str: "FULL" or "SUMMARY" preference
+    """
     try:
-        system_prompt = f"You are an assistant that helps determine article preferences. Based on the title and summary of an article, determine if it should be shown in full or summarized based on these user preferences:\n\n{USER_PREFERENCE_CRITERIA}\n\nRespond with either 'FULL' or 'SUMMARY' only."
+        # Create a feed source for better context
+        feed_source = ""
+        if feed_url:
+            # Extract domain from feed URL for context
+            from urllib.parse import urlparse
+            parsed_url = urlparse(feed_url)
+            domain = parsed_url.netloc
+            feed_source = f"\nSource: {domain}"
+            
+        system_prompt = f"You are an assistant that helps determine article preferences. Based on the title, summary, and source of an article, determine if it should be shown in full or summarized based on these user preferences:\n\n{USER_PREFERENCE_CRITERIA}\n\nRespond with either 'FULL' or 'SUMMARY' only."
         
         response = client.chat.completions.create(
             model=AI_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Title: {title}\n\nSummary: {summary}\n\nShould this article be shown in full or summarized?"}
+                {"role": "user", "content": f"Title: {title}\n\nSummary: {summary}{feed_source}\n\nShould this article be shown in full or summarized?"}
             ],
             max_tokens=10
         )
@@ -132,6 +150,7 @@ def create_consolidated_summary(articles, feed_url):
         dict: Consolidated entry dictionary or None if no articles
     """
     if not articles:
+        print("  No articles for digest, skipping digest creation")
         return None
     
     # Helper function to create title-link mapping
@@ -423,7 +442,7 @@ def process_feeds():
             new_entry_count += 1
             
             # Determine preference
-            preference = evaluate_article_preference(title, summary)
+            preference = evaluate_article_preference(title, summary, feed_url)
             
             # Format the date for the RSS feed
             formatted_date = formatdate(parser.parse(entry_date).timestamp()) if entry_date else formatdate(datetime.datetime.now().timestamp())
@@ -472,7 +491,10 @@ def process_feeds():
         # Create new RSS feed
         if processed_entries:
             filename = create_new_rss_feed(feed_title, feed_link, feed_description, processed_entries)
-            print(f"Created processed feed: {filename} with {len(processed_entries)} entries ({len(full_entries)} individual, 1 digest with {len(summary_entries)} articles)")
+            if summary_entries:
+                print(f"Created processed feed: {filename} with {len(processed_entries)} entries ({len(full_entries)} individual, 1 digest with {len(summary_entries)} articles)")
+            else:
+                print(f"Created processed feed: {filename} with {len(processed_entries)} entries ({len(full_entries)} individual, no digest)")
             total_new_entries += new_entry_count
             total_processed_feeds += 1
         else:
