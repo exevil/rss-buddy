@@ -12,7 +12,7 @@ venv/
 # Logs
 *.log
 
-# Generated output (these should only be in the output branch)
+# Generated output for local testing
 processed_feeds/
 docs/
 
