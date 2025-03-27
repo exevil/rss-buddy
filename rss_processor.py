@@ -18,11 +18,13 @@ from state_manager import StateManager
 
 # Read configuration from environment variables
 def get_env_list(var_name, default=None):
-    """Get a list from environment variable, separated by commas."""
+    """Get a list from environment variable, separated by newlines."""
     value = os.environ.get(var_name)
     if not value:
         return default or []
-    return [item.strip() for item in value.split(',')]
+    
+    # Split by newlines and filter out empty items
+    return [item.strip() for item in value.split('\n') if item.strip()]
 
 def get_env_int(var_name, default):
     """Get an integer from environment variable."""

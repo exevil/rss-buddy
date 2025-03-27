@@ -60,7 +60,7 @@ RSS Buddy uses environment variables for all configuration, which can be set eit
 | Environment Variable    | Description                                    | Default                  |
 |-------------------------|------------------------------------------------|--------------------------|
 | `OPENAI_API_KEY`        | Your OpenAI API key (required)                | -                        |
-| `RSS_FEEDS`             | Comma-separated list of RSS feed URLs         | See example below        |
+| `RSS_FEEDS`             | List of RSS feed URLs (newline separated) | See example below        |
 | `USER_PREFERENCE_CRITERIA` | Criteria for determining article preferences | See example below        |
 | `DAYS_LOOKBACK`         | Number of days to look back for articles (creates a rolling window, e.g., 3 = last 72 hours) | 7                        |
 | `AI_MODEL`              | OpenAI model to use                           | gpt-4                    |
@@ -72,17 +72,22 @@ RSS Buddy uses environment variables for all configuration, which can be set eit
 # OpenAI API Key (required)
 OPENAI_API_KEY=your-openai-api-key-here
 
-# RSS Feeds to process (comma-separated)
-RSS_FEEDS=https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,https://www.wired.com/feed/rss
+# RSS Feeds to process (one per line or comma-separated)
+RSS_FEEDS="https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+https://www.wired.com/feed/rss
+https://feeds.arstechnica.com/arstechnica/index"
+
+# Alternative comma-separated format:
+# RSS_FEEDS=https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,https://www.wired.com/feed/rss
 
 # User preference criteria for determining which articles to show in full
-USER_PREFERENCE_CRITERIA=When determining if an article should be shown in full or summarized, consider these factors:
+USER_PREFERENCE_CRITERIA="When determining if an article should be shown in full or summarized, consider these factors:
 - Technical deep dives in machine learning, AI, and quantum computing should be shown in FULL
 - Breaking news about major tech companies should be shown in FULL
 - General technology news can be SUMMARIZED
 - Scientific breakthroughs should be shown in FULL
 - Political news should be SUMMARIZED unless it relates directly to technology policy
-- Entertainment news should be SUMMARIZED
+- Entertainment news should be SUMMARIZED"
 
 # Number of days to look back for articles
 DAYS_LOOKBACK=7
