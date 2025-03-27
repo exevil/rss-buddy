@@ -2,7 +2,7 @@
 import os
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class StateManager:
     """Manages the state of processed articles to avoid reprocessing."""
@@ -161,7 +161,7 @@ class StateManager:
         Returns:
             datetime: The cutoff date (entries after this are considered recent)
         """
-        return datetime.now(datetime.timezone.utc) - timedelta(days=days_lookback)
+        return datetime.now(timezone.utc) - timedelta(days=days_lookback)
     
     def get_articles_in_digest(self, feed_url):
         """Get the list of article IDs that are already in the digest for a feed.

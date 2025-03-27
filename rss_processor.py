@@ -132,85 +132,121 @@ def create_consolidated_summary(articles, feed_url):
     if not articles:
         return None
     
-    try:
-        # Get article IDs for state tracking
-        article_ids = [article['guid'] for article in articles]
-        
-        # Prepare a list of article summaries for OpenAI
-        article_list = ""
-        for i, article in enumerate(articles, 1):
-            article_list += f"Article {i}: {article['title']}\n"
-            article_list += f"Link: {article['link']}\n"
-            article_list += f"Summary: {article['summary']}\n\n"
-        
-        response = client.chat.completions.create(
-            model=AI_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an assistant that creates a consolidated summary of multiple articles. Your task is to identify key themes and important stories, and organize them into a readable digest. Each article title you mention should be a clickable link to the original article."},
-                {"role": "user", "content": f"Here are {len(articles)} articles from the past {DAYS_LOOKBACK} days that I'm less interested in but still want a brief overview of:\n\n{article_list}\n\nPlease create a consolidated summary that organizes these into themes and highlights the most noteworthy stories. Format the response as a readable digest with HTML. Each article title you mention should be wrapped in an HTML link tag pointing to its original URL (e.g., <a href='article_url'>Article Title</a>)."}
-            ],
-            max_tokens=SUMMARY_MAX_TOKENS * len(articles)
-        )
-        
-        # Collect article data for the digest
-        titles_with_links = {}
+    # Helper function to create title-link mapping
+    def create_title_links_map():
+        titles_map = {}
         for article in articles:
-            titles_with_links[article['title']] = article['link']
+            titles_map[article['title']] = article['link']
+        return titles_map
+    
+    # Helper function to create article list for OpenAI
+    def create_article_list():
+        result = ""
+        for i, article in enumerate(articles, 1):
+            result += f"Article {i}: {article['title']}\n"
+            result += f"Link: {article['link']}\n"
+            result += f"Summary: {article['summary']}\n\n"
+        return result
+    
+    # Helper function to create stable content hash
+    def create_stable_content():
+        # Get article IDs for state tracking
+        ids = [article['guid'] for article in articles]
+        # Sort IDs to ensure consistent hashing regardless of order
+        ids.sort()
         
-        # Get digest content for hashing (to detect changes)
-        digest_content = response.choices[0].message.content.strip()
+        # Create a stable content representation for hashing
+        # Use only article IDs and titles, not timestamps or other changing data
+        content = ""
+        for article_id in ids:
+            article_match = next((a for a in articles if a['guid'] == article_id), None)
+            if article_match:
+                content += f"{article_id}:{article_match['title']}|"
+        return ids, content
+    
+    # Helper function to generate digest with OpenAI
+    def generate_digest_content(article_list_str):
+        try:
+            response = client.chat.completions.create(
+                model=AI_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are an assistant that creates a consolidated summary of multiple articles. Your task is to identify key themes and important stories, and organize them into a readable digest. Each article title you mention should be a clickable link to the original article."},
+                    {"role": "user", "content": f"Here are {len(articles)} articles from the past {DAYS_LOOKBACK} days that I'm less interested in but still want a brief overview of:\n\n{article_list_str}\n\nPlease create a consolidated summary that organizes these into themes and highlights the most noteworthy stories. Format the response as a readable digest with HTML. Each article title you mention should be wrapped in an HTML link tag pointing to its original URL (e.g., <a href='article_url'>Article Title</a>)."}
+                ],
+                max_tokens=SUMMARY_MAX_TOKENS * len(articles)
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error generating digest with OpenAI: {e}")
+            # Create simple HTML list as fallback
+            links_html = "<ul>\n"
+            for title, link in create_title_links_map().items():
+                links_html += f"<li><a href='{link}'>{title}</a></li>\n"
+            links_html += "</ul>"
+            return f"<p>Summary of other stories:</p>\n{links_html}"
+    
+    # Helper function to create final digest entry
+    def create_digest_entry(digest_id, content):
+        return {
+            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
+            'description': content,
+            'link': articles[0]['link'] if articles else "#",
+            'pubDate': formatdate(datetime.datetime.now().timestamp()),
+            'guid': digest_id,
+            'consolidated': True,
+            'included_articles': list(create_title_links_map().keys()),
+            'article_links': create_title_links_map()
+        }
+    
+    try:
+        # Create stable content for hashing
+        article_ids, stable_content = create_stable_content()
         
-        # Update digest state - this generates a new ID only if content changed
-        digest_id, is_updated = state_manager.update_digest_state(feed_url, article_ids, digest_content)
+        # Create article list for OpenAI
+        article_list = create_article_list()
+        
+        # Check if digest would be unchanged from previous state
+        existing_digest_articles = state_manager.get_articles_in_digest(feed_url)
+        existing_digest_articles.sort()
+        
+        # If the article IDs are exactly the same, we can reuse the existing digest ID
+        if set(article_ids) == set(existing_digest_articles):
+            digest_id = state_manager.get_processed_entries(feed_url)["digest"]["id"]
+            # If we have an existing digest ID, we can reuse it
+            if digest_id:
+                print(f"  Digest content unchanged (same articles), keeping existing ID: {digest_id}")
+                
+                # Generate digest content
+                digest_content = generate_digest_content(article_list)
+                
+                # Return the entry with the existing digest ID
+                return create_digest_entry(digest_id, digest_content)
+        
+        # For new or changed digests, create a new summary
+        digest_content = generate_digest_content(article_list)
+        
+        # Update digest state using our stable content string
+        digest_id, is_updated = state_manager.update_digest_state(feed_url, article_ids, stable_content)
         
         if is_updated:
             print(f"  Digest content changed, generating new digest with ID: {digest_id}")
         else:
             print(f"  Digest content unchanged, keeping existing ID: {digest_id}")
         
-        consolidated_entry = {
-            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
-            'description': digest_content,
-            'link': articles[0]['link'] if articles else "#",  # Use link of first article or placeholder
-            'pubDate': formatdate(datetime.datetime.now().timestamp()),
-            'guid': digest_id,
-            'consolidated': True,
-            'included_articles': list(titles_with_links.keys()),
-            'article_links': titles_with_links
-        }
-        return consolidated_entry
+        # Create and return the digest entry
+        return create_digest_entry(digest_id, digest_content)
+        
     except Exception as e:
         print(f"Error creating consolidated summary: {e}")
         
-        # Fallback simple consolidation without OpenAI
-        titles_with_links = {}
-        for article in articles:
-            titles_with_links[article['title']] = article['link']
+        # Fall back to simple digest if something fails
+        article_ids, stable_content = create_stable_content()
+        digest_id, _ = state_manager.update_digest_state(feed_url, article_ids, ",".join(article_ids))
         
-        # Create HTML list with links
-        links_html = "<ul>\n"
-        for title, link in titles_with_links.items():
-            links_html += f"<li><a href='{link}'>{title}</a></li>\n"
-        links_html += "</ul>"
+        # Create simple HTML content as fallback
+        simple_content = generate_digest_content("")
         
-        description = f"<p>Summary of other stories:</p>\n{links_html}"
-        
-        # Get article IDs for state tracking
-        article_ids = [article['guid'] for article in articles]
-        
-        # Update digest state with fallback content
-        digest_id, _ = state_manager.update_digest_state(feed_url, article_ids, description)
-        
-        return {
-            'title': f"Digest: {len(articles)} Stories from the Past {DAYS_LOOKBACK} Days",
-            'description': description,
-            'link': articles[0]['link'] if articles else "#",
-            'pubDate': formatdate(datetime.datetime.now().timestamp()),
-            'guid': digest_id,
-            'consolidated': True,
-            'included_articles': list(titles_with_links.keys()),
-            'article_links': titles_with_links
-        }
+        return create_digest_entry(digest_id, simple_content)
 
 def create_new_rss_feed(feed_title, feed_link, feed_description, entries):
     """Create a new RSS feed with processed entries."""
