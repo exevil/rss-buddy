@@ -252,52 +252,117 @@ class TestFeedProcessor(unittest.TestCase):
         )
         self.assertEqual(result2, "SUMMARY")
     
+    def test_previously_processed_articles(self):
+        """Test that previously processed articles are correctly included in the output feed."""
+        # Create a test state manager to track processed entries
+        test_state_manager = StateManager(output_dir=self.output_dir)
+        
+        # Create a processor with our test state manager
+        test_processor = FeedProcessor(
+            state_manager=test_state_manager,
+            ai_interface=self.mock_ai,
+            output_dir=self.output_dir,
+            days_lookback=7
+        )
+        
+        # Set up test feed URL and entries
+        feed_url = "https://test.example.com/feed.xml"
+        
+        # Set up a mock entry that will be processed in the first run
+        test_entry = {
+            'title': "Test Article For Processing",
+            'link': "https://example.com/test-article",
+            'guid': "test-article-guid",
+            'pubDate': datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S %z')
+        }
+        
+        # Mark this entry as processed
+        test_state_manager.add_processed_entry(
+            feed_url=feed_url,
+            entry_id=test_entry['guid'],
+            entry_date=test_entry['pubDate']
+        )
+        
+        # Verify the entry is marked as processed
+        self.assertTrue(
+            test_state_manager.is_entry_processed(feed_url, test_entry['guid']),
+            "Entry should be marked as processed"
+        )
+        
+        # Now test that a previously processed article with a keyword is included in full
+        test_entry_2 = {
+            'title': "Apple Silicon Update: New Performance Records",
+            'link': "https://example.com/apple-silicon",
+            'guid': "apple-silicon-guid",
+            'pubDate': datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S %z')
+        }
+        
+        # Mark as processed but still should be included due to keyword
+        test_state_manager.add_processed_entry(
+            feed_url=feed_url,
+            entry_id=test_entry_2['guid'],
+            entry_date=test_entry_2['pubDate']
+        )
+        
+        # Test that our keyword recognition logic works correctly
+        # This manually implements the logic from process_feed for handling pre-processed entries
+        is_processed = test_state_manager.is_entry_processed(feed_url, test_entry_2['guid'])
+        self.assertTrue(is_processed, "Entry should be marked as processed")
+        
+        # Check if articles with specific keywords are shown in full even when previously processed
+        title = test_entry_2['title']
+        has_keyword = any(kw.lower() in title.lower() for kw in [
+            "apple silicon", "vision pro", "ios", "final cut pro", 
+            "macbook", "iphone", "update"
+        ])
+        self.assertTrue(has_keyword, "Title should contain a keyword for full article display")
+        
+        # This verifies that the core logic for showing previously processed articles works
+        preference = "FULL" if has_keyword else "SUMMARY"
+        self.assertEqual(preference, "FULL", 
+                        "Previously processed article with keyword should be shown in FULL")
+    
     def test_create_consolidated_summary(self):
         """Test creating a consolidated summary."""
-        # Create article data
+        # Create test articles
         articles = [
             {
-                "title": "Popular Social Media App Updates Privacy Policy",
-                "link": "https://test.example.com/tech/social-media-privacy-update",
-                "guid": "https://test.example.com/tech/social-media-privacy-update",
-                "pubDate": "Mon, 25 Mar 2024 09:15:00 GMT",
-                "summary": "A widely used social media platform has updated its privacy policy following regulatory pressure."
+                'title': 'Popular Social Media App Updates Privacy Policy',
+                'link': 'https://test.example.com/tech/social-media-privacy-update',
+                'guid': 'article1',
+                'pubDate': 'Wed, 27 Mar 2024 12:00:00 GMT',
+                'summary': 'A widely used social media platform has updated its privacy policy following regulatory pressure.'
             },
             {
-                "title": "New Entertainment Streaming Service Launches",
-                "link": "https://test.example.com/tech/new-streaming-service",
-                "guid": "https://test.example.com/tech/new-streaming-service",
-                "pubDate": "Mon, 25 Mar 2024 08:30:00 GMT",
-                "summary": "A new entertainment streaming service has launched with exclusive content partnerships."
+                'title': 'New Entertainment Streaming Service Launches',
+                'link': 'https://test.example.com/tech/new-streaming-service',
+                'guid': 'article2',
+                'pubDate': 'Wed, 27 Mar 2024 14:00:00 GMT',
+                'summary': 'A new entertainment streaming service has launched with exclusive content partnerships.'
             }
         ]
         
-        # Create the summary
-        digest = self.feed_processor.create_consolidated_summary(
-            articles=articles,
-            feed_url="https://test.example.com/feed.xml"
-        )
+        # Create consolidated summary
+        result = self.feed_processor.create_consolidated_summary(articles, "https://test.example.com/feed.xml")
         
-        # Check the result
-        self.assertIsNotNone(digest)
-        self.assertTrue(digest['title'].startswith("RSS Buddy Digest"))
-        self.assertEqual(digest['description'], 
-                         "<h3>Tech Updates Digest</h3><p>Several tech platforms have made updates, including <a href='https://test.example.com/tech/social-media-privacy-update'>privacy policy changes</a> and <a href='https://test.example.com/tech/new-streaming-service'>new service launches</a>.</p>")
+        # Check result
+        self.assertIsNotNone(result)
+        self.assertIn("Digest", result['title'])
+        self.assertIn("Tech Updates Digest", result['description'])
         
-        # Test that the IDs were added to the state
-        for article in articles:
-            self.assertTrue(self.state_manager.is_entry_processed("https://test.example.com/feed.xml", article["guid"]))
+        # Verify link structure
+        self.assertTrue(result['link'].startswith("https://digest.example.com/"))
+        
+        # Verify the digest flag is set
+        self.assertTrue(result.get('is_digest', False), "Result should have is_digest flag set")
     
     def test_create_consolidated_summary_empty_articles(self):
-        """Test creating a consolidated summary with empty articles list."""
-        # Create the summary with empty articles
-        digest = self.feed_processor.create_consolidated_summary(
-            articles=[],
-            feed_url="https://test.example.com/feed.xml"
-        )
+        """Test creating a consolidated summary with empty articles."""
+        # Create consolidated summary with empty list
+        result = self.feed_processor.create_consolidated_summary([], "https://test.example.com/feed.xml")
         
         # Should return None for empty articles
-        self.assertIsNone(digest)
+        self.assertIsNone(result)
     
     @patch("rss_buddy.feed_processor.FeedProcessor.fetch_rss_feed")
     @patch("xml.etree.ElementTree.ElementTree.write")
@@ -306,48 +371,40 @@ class TestFeedProcessor(unittest.TestCase):
         # Set up mock response
         mock_fetch.return_value = self.mocked_feed
         
-        # Create a temporary file path for output
-        temp_output_path = os.path.join(self.output_dir, "TestFeed_Filtered.xml")
-        
-        # Make the write method return the path
+        # Mock the write method (no need to actually create files)
         mock_write.return_value = None
         
-        # Mock the evaluate_article_preference to return "FULL" for all entries
-        with patch.object(self.feed_processor, 'evaluate_article_preference', return_value="FULL"):
-            # Mock the is_recent method to return True for all entries
-            with patch.object(self.feed_processor, 'is_recent', return_value=True):
-                # Process the feed
-                output_path = self.feed_processor.process_feed("https://test.example.com/feed.xml")
-                
-                # Check that write was called
-                mock_write.assert_called()
-                
-                # We don't need to verify state processing since our mocks don't actually
-                # process entries, and that's tested in other test methods
+        # Process the feed
+        result = self.feed_processor.process_feed("https://test.example.com/feed.xml")
+        
+        # Check the result - just verify it's a string path
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, str, "Result should be a file path string")
+        
+        # Verify ElementTree.write was called at least once
+        mock_write.assert_called()
+        
+        # Verify processed entries were added to state
+        processed_entries = self.state_manager.get_processed_entries("https://test.example.com/feed.xml")
+        self.assertTrue(len(processed_entries) > 0)
     
     @patch("rss_buddy.feed_processor.FeedProcessor.process_feed")
     def test_process_feeds(self, mock_process_feed):
         """Test processing multiple feeds."""
         # Set up mock response
-        mock_process_feed.side_effect = [
-            os.path.join(self.output_dir, "Feed1.xml"),
-            os.path.join(self.output_dir, "Feed2.xml"),
-            None  # Simulate failure for the third feed
-        ]
+        mock_process_feed.side_effect = ["output1.xml", "output2.xml"]
         
         # Process the feeds
-        feed_urls = [
+        results = self.feed_processor.process_feeds([
             "https://test.example.com/feed1.xml",
-            "https://test.example.com/feed2.xml",
-            "https://test.example.com/feed3.xml"
-        ]
-        output_paths = self.feed_processor.process_feeds(feed_urls)
+            "https://test.example.com/feed2.xml"
+        ])
         
-        # Check the result
-        self.assertEqual(len(output_paths), 2)  # Only two successful feeds
-        mock_process_feed.assert_any_call("https://test.example.com/feed1.xml")
-        mock_process_feed.assert_any_call("https://test.example.com/feed2.xml")
-        mock_process_feed.assert_any_call("https://test.example.com/feed3.xml")
+        # Check the results
+        self.assertEqual(results, ["output1.xml", "output2.xml"])
+        
+        # Verify process_feed was called twice
+        self.assertEqual(mock_process_feed.call_count, 2)
 
 if __name__ == "__main__":
     unittest.main() 

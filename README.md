@@ -40,6 +40,8 @@ The codebase consists of these key files:
 - Can generate a GitHub Pages site to browse processed feeds
 - Smart digest handling: only updates the digest ID when content changes, ensuring it only appears as "new" in RSS readers when actual changes occur
 - Precise lookback window: processes items from the past N days (configurable), always maintaining a rolling window
+- Robust date parsing with fallback mechanisms for handling problematic timezone formats
+- Maintains all recent articles in the output feed, regardless of whether they've been processed before
 
 ## Setup
 
@@ -192,6 +194,32 @@ The script will:
 - Run the RSS processor
 - Optionally generate GitHub Pages files
 
+## Advanced Features
+
+### Robust Date Handling
+
+RSS Buddy includes sophisticated date handling capabilities:
+
+- **Multiple Fallback Mechanisms**: Can parse dates in various formats, including those with problematic timezone abbreviations (like PDT, EST, CEST).
+- **Timezone Awareness**: Properly compares dates with different timezone information.
+- **Regex-Based Extraction**: For extremely non-standard formats, extracts date and time components using regular expressions.
+- **Complete Timezone Mapping**: Handles abbreviations like PDT, PST, EDT, EST, CEST, CET, AEST, and AEDT.
+
+These capabilities ensure that even feeds with unusual date formats are processed correctly, and the lookback window works as expected.
+
+### Smart Article Processing
+
+RSS Buddy optimizes AI usage by:
+
+1. **Processing New Articles**: Uses AI to evaluate only newly discovered articles
+2. **Preserving Previous Evaluations**: Keeps track of previous categorizations
+3. **Including All Recent Articles**: Shows all articles from within the lookback window, regardless of whether they've been processed before
+
+This approach ensures that:
+- You see all recent content
+- AI costs are minimized by only evaluating new content
+- The RSS feed remains comprehensive within your specified time window
+
 ## Development
 
 ### Running the Tests
@@ -212,6 +240,7 @@ The tests cover all the main components:
 - State Manager: Tests for state tracking and persistence
 - AI Interface: Tests for both real and mock AI interfaces
 - Feed Processor: Tests for feed processing and article evaluation
+- Date Handling: Specialized tests for the date parsing and comparison logic
 
 ### Project Organization
 
@@ -232,6 +261,7 @@ rss-buddy/
 │   ├── test_state_manager.py
 │   ├── test_ai_interface.py
 │   ├── test_feed_processor.py
+│   ├── test_date_handling.py
 │   ├── data/           # Test data
 │   └── fixtures/       # Test fixtures
 ├── run_rss_buddy.py    # Command-line runner

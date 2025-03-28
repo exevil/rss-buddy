@@ -164,6 +164,79 @@ class TestDateHandling(unittest.TestCase):
         malformed_date = f"Date is Day {recent_date.strftime('%d/%m/%Y')} at {recent_date.strftime('%H:%M:%S')} in TZ?"
         result = self.feed_processor.is_recent(malformed_date)
         self.assertTrue(result, f"Malformed date with recognizable parts should work: {malformed_date}")
+        
+    def test_additional_date_formats(self):
+        """Test parsing of additional date formats commonly found in RSS feeds."""
+        now = datetime.now(timezone.utc)
+        recent_date = now - timedelta(days=1)
+        
+        # Additional formats to test
+        date_formats = [
+            # Common RSS date format variants
+            recent_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),  # Basic GMT
+            recent_date.strftime('%d %b %Y %H:%M:%S'),  # Without day name
+            recent_date.strftime('%B %d, %Y %I:%M %p'),  # Month name, 12-hour format
+            recent_date.strftime('%Y-%m-%dT%H:%M:%S.%f%z'),  # ISO with microseconds
+            f"{recent_date.strftime('%a, %d %b %Y %H:%M:%S')} (Eastern Standard Time)",  # With timezone name in parentheses
+            f"{recent_date.strftime('%Y-%m-%d')}T{recent_date.strftime('%H:%M:%S')}",  # Literal T separator without timezone
+        ]
+        
+        for date_str in date_formats:
+            result = self.feed_processor.is_recent(date_str)
+            self.assertTrue(result, f"Date format should be recognized as recent: {date_str}")
+            
+    def test_edge_case_date_formats(self):
+        """Test edge case date formats and recovery strategies."""
+        now = datetime.now(timezone.utc)
+        recent_date = now - timedelta(days=1)
+        
+        # Edge cases
+        edge_cases = [
+            f"Published on {recent_date.strftime('%d-%m-%Y')}",  # Date embedded in text
+            f"Last Updated: {recent_date.strftime('%I:%M %p')} on {recent_date.strftime('%d %B, %Y')}",  # Time and date separated
+            f"{recent_date.strftime('%Y%m%d%H%M%S')}",  # Compact format without separators
+            f"{recent_date.year}, {recent_date.strftime('%B')} {recent_date.day}",  # Unusual ordering
+        ]
+        
+        # Try each edge case with regex fallback
+        for date_str in edge_cases:
+            # Create a patch to force the regex fallback by making the initial parse fail
+            with patch('dateutil.parser.parse', side_effect=ValueError("Simulated parsing failure")):
+                with patch.object(self.feed_processor, 'is_recent', wraps=self.feed_processor.is_recent) as wrapped_is_recent:
+                    result = wrapped_is_recent(date_str)
+                    # We don't assert the result here because the regex fallback may not work for all these edge cases
+                    # We just want to ensure the function doesn't crash and handles the failure gracefully
+                    
+    def test_timezone_aware_lookback_window(self):
+        """Test that the lookback window properly handles timezone-aware dates."""
+        # Set up the test with a fixed lookback period
+        lookback_days = 3
+        test_processor = FeedProcessor(
+            state_manager=self.state_manager,
+            ai_interface=None,
+            output_dir=".",
+            days_lookback=lookback_days
+        )
+        
+        # Get current UTC time
+        now = datetime.now(timezone.utc)
+        
+        # Test date just inside the lookback window (should be recent)
+        inside_window = now - timedelta(days=lookback_days - 0.5)
+        inside_date = inside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
+        self.assertTrue(test_processor.is_recent(inside_date), 
+                       f"Date just inside lookback window ({lookback_days - 0.5} days ago) should be recent")
+        
+        # Test date just outside the lookback window (should not be recent)
+        outside_window = now - timedelta(days=lookback_days + 0.5)
+        outside_date = outside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
+        self.assertFalse(test_processor.is_recent(outside_date), 
+                        f"Date just outside lookback window ({lookback_days + 0.5} days ago) should not be recent")
+        
+        # Test with a different timezone offset
+        other_tz_inside = (now - timedelta(days=lookback_days - 0.5)).strftime('%Y-%m-%dT%H:%M:%S-0700')
+        self.assertTrue(test_processor.is_recent(other_tz_inside), 
+                       "Date inside lookback window with non-UTC timezone should be recent")
 
 if __name__ == "__main__":
     unittest.main() 

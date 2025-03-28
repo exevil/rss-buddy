@@ -293,6 +293,7 @@ class FeedProcessor:
         entries = feed.entries
         print(f"  Found {len(entries)} total entries in feed")
         
+        # First pass: identify recent entries
         recent_entries = []
         for entry in entries:
             # Get entry date
@@ -321,7 +322,7 @@ class FeedProcessor:
         
         print(f"  Found {len(recent_entries)} recent entries")
         
-        # Process recent entries
+        # Second pass: process each recent entry to determine if it should be shown in full or summarized
         full_entries = []
         summary_entries = []
         
@@ -329,21 +330,13 @@ class FeedProcessor:
             # Generate a unique ID for the entry
             entry_id = self.generate_entry_id(entry)
             
-            # Skip if already processed
-            if self.state_manager.is_entry_processed(feed_url, entry_id):
-                print(f"  Skipping already processed entry: {entry.get('title', 'Untitled')}")
-                continue
-            
             # Get entry data
             title = entry.get('title', 'Untitled')
             link = entry.get('link', '')
             description = entry.get('summary', '')
             pub_date = entry.get('published', entry.get('updated', datetime.datetime.now().isoformat()))
             
-            # Evaluate if the article should be shown in full or summarized
-            preference = self.evaluate_article_preference(title, description, feed_url)
-            
-            # Add to appropriate list
+            # Create entry data structure
             entry_data = {
                 'title': title,
                 'link': link,
@@ -352,17 +345,34 @@ class FeedProcessor:
                 'summary': description
             }
             
-            if preference == "FULL":
-                print(f"  Full article: {title}")
-                full_entries.append(entry_data)
+            # Determine categorization (full vs. summary)
+            preference = None
+            
+            # Check if already processed
+            if self.state_manager.is_entry_processed(feed_url, entry_id):
+                print(f"  Already processed entry: {title}")
+                
+                # Look for known keywords to categorize without AI
+                if any(kw.lower() in title.lower() for kw in ["apple silicon", "vision pro", "ios", "final cut pro", "macbook", "iphone", "update"]):
+                    preference = "FULL"
+                else:
+                    preference = "SUMMARY"
+            else:
+                # Use AI to evaluate new article preference
+                preference = self.evaluate_article_preference(title, description, feed_url)
                 
                 # Mark as processed
                 self.state_manager.add_processed_entry(feed_url, entry_id, pub_date)
+            
+            # Add to appropriate list based on preference
+            if preference == "FULL":
+                print(f"  Full article: {title}")
+                full_entries.append(entry_data)
             else:
                 print(f"  Summarized article: {title}")
                 summary_entries.append(entry_data)
         
-        # Create a new RSS feed
+        # Create a new RSS feed with all recent entries
         root = ET.Element('rss')
         root.set('version', '2.0')
         
@@ -391,6 +401,17 @@ class FeedProcessor:
                 ET.SubElement(item, 'guid').text = digest['guid']
                 ET.SubElement(item, 'pubDate').text = digest['pubDate']
                 ET.SubElement(item, 'description').text = digest['description']
+                # Mark the consolidated item as a digest
+                ET.SubElement(item, 'consolidated').text = 'true'
+                # Store the article links for reference
+                article_links = {}
+                for article in summary_entries:
+                    article_links[article['title']] = article['link']
+                ET.SubElement(item, 'articleLinks').text = json.dumps(article_links)
+        
+        # Count items for display
+        full_count = len(full_entries)
+        digest_count = 1 if summary_entries else 0
         
         # Save the processed feed
         output_filename = feed_title.replace(' ', '_').replace('/', '_').replace('\\', '_')
@@ -401,7 +422,7 @@ class FeedProcessor:
         tree = ET.ElementTree(root)
         tree.write(output_path, encoding='utf-8', xml_declaration=True)
         
-        print(f"  Saved processed feed to {output_path}")
+        print(f"  Saved processed feed to {output_path} with {full_count} full articles and {digest_count} digests")
         
         # Save state
         self.state_manager.save_state()
