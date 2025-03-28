@@ -6,6 +6,7 @@ import datetime
 from typing import Dict, List, Optional, Any, Tuple, Union
 import xml.etree.ElementTree as ET
 from email.utils import formatdate
+from datetime import timezone
 
 from dateutil import parser
 import feedparser
@@ -80,8 +81,35 @@ class FeedProcessor:
         days = days or self.days_lookback
         
         try:
-            published_date = parser.parse(entry_date)
+            # Parse the entry date with more robust handling
+            try:
+                # First try with normal parsing
+                published_date = parser.parse(entry_date)
+            except parser._parser.UnknownTimezoneWarning:
+                # If we get timezone warnings, try parsing without timezone
+                published_date = parser.parse(entry_date, ignoretz=True)
+            except Exception as e:
+                # If other exceptions occur, log and try an alternative approach
+                print(f"Primary parsing failed: {e}, trying fallback method")
+                
+                # Fallback: For common problematic formats, try to normalize
+                if 'PDT' in entry_date or 'PST' in entry_date or 'EDT' in entry_date or 'EST' in entry_date:
+                    # Replace problematic timezone with UTC equivalent (approximation)
+                    normalized_date = entry_date.replace('PDT', 'UTC').replace('PST', 'UTC').replace('EDT', 'UTC').replace('EST', 'UTC')
+                    published_date = parser.parse(normalized_date)
+                else:
+                    # If not a known problematic timezone, re-raise
+                    raise
+            
+            # Get the cutoff date, which is timezone-aware (UTC)
             cutoff_date = self.state_manager.get_recent_cutoff_date(days)
+            
+            # Ensure the published date has timezone info
+            if published_date.tzinfo is None:
+                # If no timezone info, assume UTC
+                published_date = published_date.replace(tzinfo=timezone.utc)
+            
+            # Now we can safely compare the dates
             return published_date > cutoff_date
         except Exception as e:
             print(f"Error parsing date: {e}")
@@ -215,16 +243,47 @@ class FeedProcessor:
         feed_description = feed.feed.get('description', '')
         print(f"  Feed: {feed_title}")
         
+        # Debug: Print cutoff date
+        cutoff_date = self.state_manager.get_recent_cutoff_date(self.days_lookback)
+        print(f"  Looking for entries newer than: {cutoff_date.isoformat()}")
+        
         # Get entries and check if they're recent
         entries = feed.entries
+        print(f"  Found {len(entries)} total entries in feed")
+        
         recent_entries = []
         for entry in entries:
             # Get entry date
             entry_date = entry.get('published', entry.get('updated', None))
             
-            # Check if entry is recent
-            if entry_date and self.is_recent(entry_date, self.days_lookback):
-                recent_entries.append(entry)
+            # Try additional date fields if standard ones are missing
+            if not entry_date:
+                # Try additional feedparser date fields
+                for field in ['pubDate', 'date', 'created', 'modified']:
+                    if hasattr(entry, field) and getattr(entry, field):
+                        entry_date = getattr(entry, field)
+                        print(f"  Using alternate date field '{field}' for entry: '{entry.get('title', 'Untitled')}'")
+                        break
+            
+            # Debug: Show date evaluation
+            title = entry.get('title', 'Untitled')
+            if entry_date:
+                try:
+                    parsed_date = parser.parse(entry_date)
+                    tz_info = "with timezone" if parsed_date.tzinfo else "without timezone"
+                    if parsed_date.tzinfo is None:
+                        parsed_date = parsed_date.replace(tzinfo=timezone.utc)
+                    
+                    is_recent = parsed_date > cutoff_date
+                    status = "recent" if is_recent else "old"
+                    print(f"  Entry: '{title}' - Date: {parsed_date.isoformat()} ({tz_info}) - Status: {status}")
+                    
+                    if is_recent:
+                        recent_entries.append(entry)
+                except Exception as e:
+                    print(f"  Date error for '{title}': {e}, date value: '{entry_date}'")
+            else:
+                print(f"  No date for entry: '{title}'")
         
         print(f"  Found {len(recent_entries)} recent entries")
         

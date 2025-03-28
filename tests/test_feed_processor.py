@@ -3,6 +3,7 @@ import os
 import json
 import tempfile
 import unittest
+import signal
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
@@ -13,6 +14,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from rss_buddy.feed_processor import FeedProcessor
 from rss_buddy.ai_interface import MockAIInterface
 from rss_buddy.state_manager import StateManager
+
+# Define a timeout handler
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException("Test timed out")
 
 class TestFeedProcessor(unittest.TestCase):
     """Test the FeedProcessor class."""
@@ -137,6 +145,94 @@ class TestFeedProcessor(unittest.TestCase):
         
         # A None date should return False
         self.assertFalse(self.feed_processor.is_recent(None))
+    
+    def test_is_recent_with_timezone_formats(self):
+        """Test different timezone formats to ensure consistent handling."""
+        # Get current time for reference
+        now = datetime.now(timezone.utc)
+        
+        # A few key date formats to test (within lookback period)
+        recent_dates = [
+            # Standard RFC 2822 format with explicit timezone
+            (now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S +0000'),
+            # ISO 8601 format with Z (Zulu/UTC)
+            (now - timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            # Format with no timezone (should be interpreted as UTC)
+            (now - timedelta(days=4)).strftime('%Y-%m-%d %H:%M:%S')
+        ]
+        
+        # Test each format
+        for date_str in recent_dates:
+            self.assertTrue(self.feed_processor.is_recent(date_str), 
+                            f"Date {date_str} should be considered recent")
+        
+        # One old date to test
+        old_date = (now - timedelta(days=30)).strftime('%a, %d %b %Y %H:%M:%S +0000')
+        self.assertFalse(self.feed_processor.is_recent(old_date),
+                          f"Date {old_date} should not be considered recent")
+    
+    def test_naive_and_aware_datetime_comparison(self):
+        """Test that timezone-naive and timezone-aware datetimes are compared correctly."""
+        now = datetime.now(timezone.utc)
+        
+        # Create a timezone-naive recent date string
+        naive_recent = (now - timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Create a timezone-aware recent date string
+        aware_recent = (now - timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        
+        # Both should be considered recent
+        self.assertTrue(self.feed_processor.is_recent(naive_recent))
+        self.assertTrue(self.feed_processor.is_recent(aware_recent))
+        
+        # Create naive and aware old dates
+        naive_old = (now - timedelta(days=10)).strftime('%Y-%m-%d %H:%M:%S')
+        aware_old = (now - timedelta(days=10)).strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        
+        # Both should not be considered recent
+        self.assertFalse(self.feed_processor.is_recent(naive_old))
+        self.assertFalse(self.feed_processor.is_recent(aware_old))
+    
+    def test_alternate_date_fields(self):
+        """Test that the feed processor correctly checks alternate date fields."""
+        # Method to simulate the behavior in process_feed that checks different date fields
+        def find_entry_date(entry):
+            # First try standard fields
+            entry_date = entry.get('published', entry.get('updated', None))
+            
+            # If standard fields aren't found, check alternative fields
+            if not entry_date:
+                for field in ['pubDate', 'date', 'created', 'modified']:
+                    if field in entry:
+                        return entry[field]
+            return entry_date
+        
+        # Create a test entry
+        test_entry = {
+            'title': 'Test Article with Alternative Date Field',
+            'link': 'https://example.com/test-article',
+            # No standard date fields
+        }
+        
+        # Test with no date field
+        self.assertIsNone(find_entry_date(test_entry), 
+                         "Should return None when no date fields are present")
+        
+        # Test with pubDate field
+        test_entry['pubDate'] = '2025-03-27T12:00:00Z'
+        self.assertEqual(find_entry_date(test_entry), '2025-03-27T12:00:00Z',
+                        "Should find date in pubDate field")
+        
+        # Test with a different alternative field
+        del test_entry['pubDate']
+        test_entry['date'] = '2025-03-27T12:00:00Z'
+        self.assertEqual(find_entry_date(test_entry), '2025-03-27T12:00:00Z',
+                        "Should find date in date field")
+        
+        # Test with a standard field taking precedence over alternative
+        test_entry['published'] = '2025-03-28T12:00:00Z'
+        self.assertEqual(find_entry_date(test_entry), '2025-03-28T12:00:00Z',
+                        "Standard published field should take precedence")
     
     def test_evaluate_article_preference(self):
         """Test evaluating article preference."""

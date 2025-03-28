@@ -77,7 +77,14 @@ jobs:
           AI_MODEL: ${{ vars.AI_MODEL || secrets.AI_MODEL }}
           SUMMARY_MAX_TOKENS: ${{ vars.SUMMARY_MAX_TOKENS || secrets.SUMMARY_MAX_TOKENS }}
           OUTPUT_DIR: processed_feeds
+          TZ: UTC
+          PYTHONWARNINGS: ignore::dateutil.parser.UnknownTimezoneWarning
         run: |
+          # Ensure the system timezone is set to UTC
+          echo "Running with timezone set to UTC"
+          date
+          
+          # Execute RSS Buddy with debug information
           ./run_rss_buddy.py --generate-pages
       
       # Configure Pages
