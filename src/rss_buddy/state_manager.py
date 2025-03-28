@@ -144,8 +144,8 @@ class StateManager:
         is_updated = False
         if feed_state["digest"]["content_hash"] != content_hash:
             is_updated = True
-            # Generate a new digest ID if content changed
-            feed_state["digest"]["id"] = f"digest-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # Generate a new digest ID if content changed - use microseconds for more uniqueness in tests
+            feed_state["digest"]["id"] = f"digest-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
             feed_state["digest"]["content_hash"] = content_hash
             feed_state["digest"]["article_ids"] = article_ids
             feed_state["digest"]["last_updated"] = datetime.now().isoformat()

@@ -38,13 +38,13 @@ fi
 
 # Run the RSS processor
 echo "Running rss-buddy..."
-python rss_processor.py
 
-# Generate GitHub Pages (if --pages option is provided)
+# Check if --pages option is provided and prepare arguments
 if [ "$2" == "--pages" ]; then
-    echo "Generating GitHub Pages..."
-    python generate_pages.py processed_feeds docs
-    echo "GitHub Pages files generated in docs/ directory"
+    echo "Will generate GitHub Pages..."
+    ./run_rss_buddy.py --api-key "$OPENAI_API_KEY" --generate-pages
+else
+    ./run_rss_buddy.py --api-key "$OPENAI_API_KEY"
 fi
 
 # Deactivate virtual environment

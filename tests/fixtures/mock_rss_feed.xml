@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Tech News</title>
+    <link>https://test.example.com/tech</link>
+    <description>Test RSS feed for technology news</description>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 25 Mar 2024 12:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Major AI Breakthrough in Quantum Computing</title>
+      <link>https://test.example.com/tech/ai-quantum-breakthrough</link>
+      <guid>https://test.example.com/tech/ai-quantum-breakthrough</guid>
+      <pubDate>Mon, 25 Mar 2024 11:30:00 GMT</pubDate>
+      <description>Researchers have achieved a significant breakthrough in quantum computing using AI techniques, potentially revolutionizing the field.</description>
+      <category>AI</category>
+      <category>Quantum Computing</category>
+    </item>
+    <item>
+      <title>Tech Giant Announces New Smartphone</title>
+      <link>https://test.example.com/tech/new-smartphone-release</link>
+      <guid>https://test.example.com/tech/new-smartphone-release</guid>
+      <pubDate>Mon, 25 Mar 2024 10:45:00 GMT</pubDate>
+      <description>A major tech company has unveiled its latest smartphone with groundbreaking features.</description>
+      <category>Mobile</category>
+      <category>Gadgets</category>
+    </item>
+    <item>
+      <title>Popular Social Media App Updates Privacy Policy</title>
+      <link>https://test.example.com/tech/social-media-privacy-update</link>
+      <guid>https://test.example.com/tech/social-media-privacy-update</guid>
+      <pubDate>Mon, 25 Mar 2024 09:15:00 GMT</pubDate>
+      <description>A widely used social media platform has updated its privacy policy following regulatory pressure.</description>
+      <category>Social Media</category>
+      <category>Privacy</category>
+    </item>
+    <item>
+      <title>New Entertainment Streaming Service Launches</title>
+      <link>https://test.example.com/tech/new-streaming-service</link>
+      <guid>https://test.example.com/tech/new-streaming-service</guid>
+      <pubDate>Mon, 25 Mar 2024 08:30:00 GMT</pubDate>
+      <description>A new entertainment streaming service has launched with exclusive content partnerships.</description>
+      <category>Entertainment</category>
+      <category>Streaming</category>
+    </item>
+  </channel>
+</rss> 

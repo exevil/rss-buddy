@@ -18,10 +18,15 @@ This creates a clean feed with focused content for important topics while still 
 
 ## Project Structure
 
-The main codebase consists of these key files:
-- `rss_processor.py`: The main script that processes RSS feeds and creates filtered outputs
-- `state_manager.py`: Manages the state tracking to avoid reprocessing articles
-- `generate_pages.py`: Creates HTML pages for browsing the feeds
+The codebase consists of these key files:
+- `src/rss_buddy/` - Main package containing the core functionality
+  - `main.py`: Entry point for the application
+  - `feed_processor.py`: Processes RSS feeds and creates filtered outputs
+  - `state_manager.py`: Manages the state tracking to avoid reprocessing articles
+  - `ai_interface.py`: Interface for AI operations with real and mock implementations
+  - `generate_pages.py`: Creates HTML pages for browsing the feeds
+- `run_rss_buddy.py`: Command-line script to run the processor
+- `run_tests.py`: Script to run the test suite
 - `rss-buddy.sh`: A convenience shell script to run the processor
 
 ## Features
@@ -110,9 +115,59 @@ The digest item is organized by themes and highlights the most noteworthy storie
 
 ## Usage
 
-### Using the Shell Script (Recommended)
+### Installing as a Package
 
-The easiest way to run RSS Buddy is with the provided shell script:
+You can install RSS Buddy as a package:
+
+```
+pip install -e .
+```
+
+This will make the `rss-buddy` command available in your environment.
+
+### Using the Command-Line Runner
+
+To run RSS Buddy from the command line:
+
+```
+./run_rss_buddy.py --api-key YOUR_OPENAI_API_KEY --feeds "https://example.com/feed1.xml,https://example.com/feed2.xml"
+```
+
+Or using environment variables or a `.env` file:
+
+```
+./run_rss_buddy.py
+```
+
+Note: The scripts `run_rss_buddy.py` and `run_tests.py` are executable, so you can run them directly without explicitly calling Python.
+
+### Command-Line Options
+
+```
+usage: run_rss_buddy.py [-h] [--api-key API_KEY] [--feeds FEEDS] [--output-dir OUTPUT_DIR]
+                        [--days-lookback DAYS_LOOKBACK] [--model MODEL] [--max-tokens MAX_TOKENS]
+                        [--criteria CRITERIA] [--generate-pages]
+
+Process RSS feeds with AI filtering.
+
+options:
+  -h, --help            show this help message and exit
+  --api-key API_KEY     OpenAI API key
+  --feeds FEEDS         List of RSS feed URLs (comma-separated)
+  --output-dir OUTPUT_DIR
+                        Directory to store processed feeds
+  --days-lookback DAYS_LOOKBACK
+                        Number of days to look back for articles
+  --model MODEL         OpenAI model to use
+  --max-tokens MAX_TOKENS
+                        Maximum tokens for summaries
+  --criteria CRITERIA   User preference criteria
+  --generate-pages      Generate GitHub Pages files
+```
+
+### Using the Shell Script
+
+An alternative way to run RSS Buddy is with the provided shell script:
 
 ```
 ./rss-buddy.sh YOUR_OPENAI_API_KEY
@@ -137,21 +192,54 @@ The script will:
 - Run the RSS processor
 - Optionally generate GitHub Pages files
 
-### Manual Setup
+## Development
 
-If you prefer to set up manually:
+### Running the Tests
 
-1. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+RSS Buddy has a comprehensive test suite that can be run without needing an actual OpenAI API key or real RSS feeds. To run the tests:
 
-2. Set your configuration using environment variables or a `.env` file
+```
+./run_tests.py
+```
 
-3. Run the script:
-   ```
-   python rss_processor.py
-   ```
+For verbose output:
+
+```
+./run_tests.py -v
+```
+
+The tests cover all the main components:
+- State Manager: Tests for state tracking and persistence
+- AI Interface: Tests for both real and mock AI interfaces
+- Feed Processor: Tests for feed processing and article evaluation
+
+### Project Organization
+
+The project is organized as a proper Python package:
+
+```
+rss-buddy/
+├── src/
+│   └── rss_buddy/      # Main package
+│       ├── __init__.py
+│       ├── main.py     # Entry point
+│       ├── feed_processor.py
+│       ├── state_manager.py
+│       ├── ai_interface.py
+│       └── generate_pages.py
+├── tests/              # Test suite
+│   ├── __init__.py
+│   ├── test_state_manager.py
+│   ├── test_ai_interface.py
+│   ├── test_feed_processor.py
+│   ├── data/           # Test data
+│   └── fixtures/       # Test fixtures
+├── run_rss_buddy.py    # Command-line runner
+├── run_tests.py        # Test runner
+├── setup.py            # Package setup
+├── requirements.txt    # Dependencies
+└── README.md           # Documentation
+```
 
 ## State Tracking
 
@@ -161,7 +249,7 @@ RSS Buddy tracks processed articles in a state file (`processed_state.json`) to 
 - Makes the tool ideal for scheduled runs (e.g., via GitHub Actions)
 - Ensures only new articles are processed each time
 
-The state file is stored in GitHub Pages and is automatically maintained between runs.
+The state file is stored in the output directory and is automatically maintained between runs.
 
 ## GitHub Actions and Pages Setup
 

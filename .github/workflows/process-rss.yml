@@ -38,6 +38,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install feedparser python-dateutil openai python-dotenv requests
+          # Make sure the script is executable
+          chmod +x run_rss_buddy.py
       
       # Download state file from GitHub Pages if it exists
       - name: Fetch latest state from GitHub Pages
@@ -66,7 +68,7 @@ jobs:
           fi
           
       # Use secrets from the github-pages environment
-      - name: Process RSS feeds
+      - name: Process RSS feeds and generate GitHub Pages
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           RSS_FEEDS: ${{ vars.RSS_FEEDS }}
@@ -74,13 +76,9 @@ jobs:
           DAYS_LOOKBACK: ${{ vars.DAYS_LOOKBACK || secrets.DAYS_LOOKBACK }}
           AI_MODEL: ${{ vars.AI_MODEL || secrets.AI_MODEL }}
           SUMMARY_MAX_TOKENS: ${{ vars.SUMMARY_MAX_TOKENS || secrets.SUMMARY_MAX_TOKENS }}
+          OUTPUT_DIR: processed_feeds
         run: |
-          python rss_processor.py
-          
-      - name: Generate GitHub Pages
-        run: |
-          # The generate_pages.py script already copies all XML files and the state file to the docs directory
-          python generate_pages.py
+          ./run_rss_buddy.py --generate-pages
       
       # Configure Pages
       - name: Setup Pages

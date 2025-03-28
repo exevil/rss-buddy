@@ -1,0 +1,39 @@
+{
+  "feed": {
+    "title": "Test Tech News",
+    "link": "https://test.example.com/tech",
+    "description": "Test RSS feed for technology news",
+    "language": "en-us",
+    "lastBuildDate": "Mon, 25 Mar 2024 12:00:00 GMT"
+  },
+  "entries": [
+    {
+      "title": "Major AI Breakthrough in Quantum Computing",
+      "link": "https://test.example.com/tech/ai-quantum-breakthrough",
+      "id": "https://test.example.com/tech/ai-quantum-breakthrough",
+      "published": "Mon, 25 Mar 2024 11:30:00 GMT",
+      "summary": "Researchers have achieved a significant breakthrough in quantum computing using AI techniques, potentially revolutionizing the field."
+    },
+    {
+      "title": "Tech Giant Announces New Smartphone",
+      "link": "https://test.example.com/tech/new-smartphone-release",
+      "id": "https://test.example.com/tech/new-smartphone-release",
+      "published": "Mon, 25 Mar 2024 10:45:00 GMT",
+      "summary": "A major tech company has unveiled its latest smartphone with groundbreaking features."
+    },
+    {
+      "title": "Popular Social Media App Updates Privacy Policy",
+      "link": "https://test.example.com/tech/social-media-privacy-update",
+      "id": "https://test.example.com/tech/social-media-privacy-update",
+      "published": "Mon, 25 Mar 2024 09:15:00 GMT",
+      "summary": "A widely used social media platform has updated its privacy policy following regulatory pressure."
+    },
+    {
+      "title": "New Entertainment Streaming Service Launches",
+      "link": "https://test.example.com/tech/new-streaming-service",
+      "id": "https://test.example.com/tech/new-streaming-service",
+      "published": "Mon, 25 Mar 2024 08:30:00 GMT",
+      "summary": "A new entertainment streaming service has launched with exclusive content partnerships."
+    }
+  ]
+} 
