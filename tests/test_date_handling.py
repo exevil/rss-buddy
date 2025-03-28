@@ -4,6 +4,7 @@ import sys
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
+import re
 
 # Add src directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
@@ -120,6 +121,49 @@ class TestDateHandling(unittest.TestCase):
         # Both should return the same result since they represent the same date
         self.assertEqual(naive_result, aware_result, 
                         "Naive and aware dates from same time should have same is_recent result")
+    
+    def test_date_parsing_fallbacks(self):
+        """Test the fallback mechanisms for date parsing."""
+        now = datetime.now(timezone.utc)
+        recent_date = now - timedelta(days=1)
+        
+        # Test common problematic timezone formats
+        timezone_formats = {
+            'PDT': '-0700',
+            'PST': '-0800',
+            'EDT': '-0400',
+            'EST': '-0500',
+            'CEST': '+0200',
+            'CET': '+0100',
+            'AEST': '+1000',
+            'AEDT': '+1100'
+        }
+        
+        # Test each problematic timezone
+        for tz, _ in timezone_formats.items():
+            date_str = recent_date.strftime(f'%a, %d %b %Y %H:%M:%S {tz}')
+            result = self.feed_processor.is_recent(date_str)
+            self.assertTrue(result, f"Date with {tz} timezone should be considered recent: {date_str}")
+        
+        # Test regex fallback for dates with unparseable timezone
+        custom_format = recent_date.strftime('%Y-%m-%d %H:%M:%S INVALID_TZ')
+        # First patch parser.parse to simulate failure for this specific format
+        original_parse = parser.parse
+        
+        def mock_parse(date_string, **kwargs):
+            if 'INVALID_TZ' in date_string:
+                raise ValueError("Unknown timezone")
+            return original_parse(date_string, **kwargs)
+        
+        # Apply the patch and test
+        with patch('dateutil.parser.parse', side_effect=mock_parse):
+            result = self.feed_processor.is_recent(custom_format)
+            self.assertTrue(result, f"Date with unparseable timezone should still work with regex fallback: {custom_format}")
+        
+        # Test extremely malformed date but with recognizable parts
+        malformed_date = f"Date is Day {recent_date.strftime('%d/%m/%Y')} at {recent_date.strftime('%H:%M:%S')} in TZ?"
+        result = self.feed_processor.is_recent(malformed_date)
+        self.assertTrue(result, f"Malformed date with recognizable parts should work: {malformed_date}")
 
 if __name__ == "__main__":
     unittest.main() 

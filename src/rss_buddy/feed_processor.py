@@ -81,25 +81,67 @@ class FeedProcessor:
         days = days or self.days_lookback
         
         try:
-            # Parse the entry date with more robust handling
+            published_date = None
+            # First attempt: Try standard parsing
             try:
-                # First try with normal parsing
                 published_date = parser.parse(entry_date)
-            except parser._parser.UnknownTimezoneWarning:
-                # If we get timezone warnings, try parsing without timezone
-                published_date = parser.parse(entry_date, ignoretz=True)
             except Exception as e:
-                # If other exceptions occur, log and try an alternative approach
-                print(f"Primary parsing failed: {e}, trying fallback method")
+                # First exception caught, continue with fallbacks
+                pass
                 
-                # Fallback: For common problematic formats, try to normalize
-                if 'PDT' in entry_date or 'PST' in entry_date or 'EDT' in entry_date or 'EST' in entry_date:
-                    # Replace problematic timezone with UTC equivalent (approximation)
-                    normalized_date = entry_date.replace('PDT', 'UTC').replace('PST', 'UTC').replace('EDT', 'UTC').replace('EST', 'UTC')
+            # Second attempt: If first attempt failed, try with ignoretz
+            if published_date is None:
+                try:
+                    published_date = parser.parse(entry_date, ignoretz=True)
+                except Exception as e:
+                    # Second exception caught, continue with more fallbacks
+                    pass
+            
+            # Third attempt: Handle known problematic timezone abbreviations
+            if published_date is None:
+                # Common problematic timezone abbreviations and their approximate UTC offsets
+                timezone_replacements = {
+                    'PDT': '-0700', 'PST': '-0800', 
+                    'EDT': '-0400', 'EST': '-0500',
+                    'CEST': '+0200', 'CET': '+0100',
+                    'AEST': '+1000', 'AEDT': '+1100'
+                }
+                
+                normalized_date = entry_date
+                for tz, offset in timezone_replacements.items():
+                    if tz in entry_date:
+                        # Replace the problematic timezone with its UTC offset
+                        normalized_date = entry_date.replace(tz, offset)
+                        break
+                
+                try:
                     published_date = parser.parse(normalized_date)
-                else:
-                    # If not a known problematic timezone, re-raise
-                    raise
+                except Exception as e:
+                    # Third exception caught, one final attempt with a stricter format
+                    pass
+            
+            # Fourth attempt: Strip all timezone info and assume UTC
+            if published_date is None:
+                try:
+                    # Extract just the date and time part without timezone
+                    import re
+                    date_match = re.search(r'\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}|\d{2} \w{3} \d{4}', entry_date)
+                    time_match = re.search(r'\d{2}:\d{2}:\d{2}', entry_date)
+                    
+                    if date_match and time_match:
+                        date_str = date_match.group(0)
+                        time_str = time_match.group(0)
+                        simple_date = f"{date_str} {time_str}"
+                        published_date = parser.parse(simple_date)
+                except Exception as e:
+                    # All attempts failed
+                    print(f"All parsing attempts failed for date: {entry_date} - {e}")
+                    return False
+            
+            # All attempts failed
+            if published_date is None:
+                print(f"Could not parse date: {entry_date}")
+                return False
             
             # Get the cutoff date, which is timezone-aware (UTC)
             cutoff_date = self.state_manager.get_recent_cutoff_date(days)
@@ -268,20 +310,12 @@ class FeedProcessor:
             # Debug: Show date evaluation
             title = entry.get('title', 'Untitled')
             if entry_date:
-                try:
-                    parsed_date = parser.parse(entry_date)
-                    tz_info = "with timezone" if parsed_date.tzinfo else "without timezone"
-                    if parsed_date.tzinfo is None:
-                        parsed_date = parsed_date.replace(tzinfo=timezone.utc)
-                    
-                    is_recent = parsed_date > cutoff_date
-                    status = "recent" if is_recent else "old"
-                    print(f"  Entry: '{title}' - Date: {parsed_date.isoformat()} ({tz_info}) - Status: {status}")
-                    
-                    if is_recent:
-                        recent_entries.append(entry)
-                except Exception as e:
-                    print(f"  Date error for '{title}': {e}, date value: '{entry_date}'")
+                is_recent = self.is_recent(entry_date, self.days_lookback)
+                status = "recent" if is_recent else "old"
+                print(f"  Entry: '{title}' - Date: {entry_date} (without timezone) - Status: {status}")
+                
+                if is_recent:
+                    recent_entries.append(entry)
             else:
                 print(f"  No date for entry: '{title}'")
         
