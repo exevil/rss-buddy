@@ -107,6 +107,9 @@ class FeedProcessor:
                     'AEST': '+1000', 'AEDT': '+1100'
                 }
                 
+                def tzinfos(tzname):
+                    return timezone_replacements.get(tzname, None)
+                
                 normalized_date = entry_date
                 for tz, offset in timezone_replacements.items():
                     if tz in entry_date:
@@ -115,7 +118,7 @@ class FeedProcessor:
                         break
                 
                 try:
-                    published_date = parser.parse(normalized_date)
+                    published_date = parser.parse(normalized_date, tzinfos=tzinfos)
                 except Exception as e:
                     # Third exception caught, one final attempt with a stricter format
                     pass
@@ -147,12 +150,12 @@ class FeedProcessor:
             cutoff_date = datetime.datetime.now(timezone.utc) - timedelta(days=days)
             
             # Ensure the published date has timezone info
-            if published_date.tzinfo is None:
+            if published_date is not None and published_date.tzinfo is None:
                 # If no timezone info, assume UTC
                 published_date = published_date.replace(tzinfo=timezone.utc)
             
             # Now we can safely compare the dates
-            return published_date > cutoff_date
+            return published_date is not None and published_date > cutoff_date
         except Exception as e:
             print(f"Error parsing date: {e}")
             return False
