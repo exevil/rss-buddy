@@ -7,6 +7,7 @@ import signal
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
+from email.utils import formatdate
 
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
@@ -405,6 +406,205 @@ class TestFeedProcessor(unittest.TestCase):
         
         # Verify process_feed was called twice
         self.assertEqual(mock_process_feed.call_count, 2)
+
+    def test_process_feed_with_lookback(self):
+        """Test processing a feed with lookback window functionality."""
+        now = datetime.now(timezone.utc)
+        
+        # Create mock feed data with 3 entries, 2 recent and 1 old
+        mock_entries = [
+            {
+                'title': 'Recent Article',
+                'link': 'https://example.com/article1',
+                'id': 'article1',
+                'summary': 'This is a recent article',
+                'published': (now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S %z')
+            },
+            {
+                'title': 'Old Article',
+                'link': 'https://example.com/article2',
+                'id': 'article2',
+                'summary': 'This is an old article',
+                'published': (now - timedelta(days=50)).strftime('%a, %d %b %Y %H:%M:%S %z')
+            },
+            {
+                'title': 'Recent Article 2',
+                'link': 'https://example.com/article3',
+                'id': 'article3',
+                'summary': 'This is another recent article',
+                'published': (now - timedelta(days=2)).strftime('%a, %d %b %Y %H:%M:%S %z')
+            }
+        ]
+        
+        # Create mock feed
+        mock_feed = MagicMock()
+        mock_feed.feed.title = "Test Feed"
+        mock_feed.feed.link = "https://example.com/feed"
+        mock_feed.feed.description = "A test feed"
+        
+        # Add entries to feed
+        mock_feed.entries = []
+        for entry_data in mock_entries:
+            entry = MagicMock()
+            for key, value in entry_data.items():
+                setattr(entry, key, value)
+            # Add mocked get method returning string values
+            entry.get = lambda k, default=None, _entry=entry: str(getattr(_entry, k, default)) if hasattr(_entry, k) else default
+            mock_feed.entries.append(entry)
+        
+        with patch('rss_buddy.feed_processor.feedparser.parse', return_value=mock_feed), \
+             patch('rss_buddy.feed_processor.FeedProcessor.evaluate_article_preference', return_value="FULL"):
+            
+            # Process the feed with a 3-day lookback (should only include the recent articles)
+            self.feed_processor.days_lookback = 3
+            output_file = self.feed_processor.process_feed("https://example.com/feed")
+            
+            # Check that the output file was created
+            self.assertTrue(os.path.exists(output_file))
+            
+            # Parse the output file to check the entries
+            tree = ET.parse(output_file)
+            root = tree.getroot()
+            items = root.findall('.//item')
+            
+            # Should include the two recent articles
+            self.assertEqual(len(items), 2)
+            
+            # Check titles
+            titles = [item.find('title').text for item in items]
+            self.assertIn('Recent Article', titles)
+            self.assertIn('Recent Article 2', titles)
+            self.assertNotIn('Old Article', titles)
+            
+            # Process again with a longer lookback (should still only include the recent articles due to state)
+            self.feed_processor.days_lookback = 30
+            output_file = self.feed_processor.process_feed("https://example.com/feed")
+            
+            # Parse the output file to check the entries (should be empty due to state tracking)
+            tree = ET.parse(output_file)
+            root = tree.getroot()
+            items = root.findall('.//item')
+            
+            # Should not include any articles (all have been processed)
+            self.assertEqual(len(items), 0)
+    
+    def test_process_feed_digest_updates(self):
+        """Test that the digest is updated when new articles are found within the lookback window."""
+        now = datetime.now(timezone.utc)
+        
+        # Create initial mock feed data with 2 entries
+        mock_entries = [
+            {
+                'title': 'Article 1',
+                'link': 'https://example.com/article1',
+                'id': 'article1',
+                'summary': 'This is article 1',
+                'published': (now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S %z')
+            },
+            {
+                'title': 'Article 2',
+                'link': 'https://example.com/article2',
+                'id': 'article2',
+                'summary': 'This is article 2',
+                'published': (now - timedelta(days=2)).strftime('%a, %d %b %Y %H:%M:%S %z')
+            }
+        ]
+        
+        # Create mock feed
+        mock_feed = MagicMock()
+        mock_feed.feed.title = "Test Feed"
+        mock_feed.feed.link = "https://example.com/feed"
+        mock_feed.feed.description = "A test feed"
+        
+        # Add entries to feed
+        mock_feed.entries = []
+        for entry_data in mock_entries:
+            entry = MagicMock()
+            for key, value in entry_data.items():
+                setattr(entry, key, value)
+            # Add mocked get method returning string values
+            entry.get = lambda k, default=None, _entry=entry: str(getattr(_entry, k, default)) if hasattr(_entry, k) else default
+            mock_feed.entries.append(entry)
+        
+        # Mock the evaluation method to split articles between FULL and SUMMARY
+        def evaluate_side_effect(title, summary, feed_url=None):
+            if title == 'Article 1':
+                return "FULL"
+            else:
+                return "SUMMARY"
+        
+        # Create a digest entry
+        digest_entry = {
+            'title': 'Test Digest',
+            'link': 'https://example.com/digest',
+            'guid': 'test-digest-id',
+            'pubDate': formatdate(),
+            'description': 'Test digest content',
+            'summary': 'Test digest content'  # Add both description and summary
+        }
+        
+        # Second digest entry with updates
+        updated_digest_entry = {
+            'title': 'Updated Test Digest',
+            'link': 'https://example.com/digest-updated',
+            'guid': 'test-digest-id-updated',
+            'pubDate': formatdate(),
+            'description': 'Updated test digest content',
+            'summary': 'Updated test digest content'  # Add both description and summary
+        }
+        
+        with patch('rss_buddy.feed_processor.feedparser.parse', return_value=mock_feed), \
+             patch('rss_buddy.feed_processor.FeedProcessor.evaluate_article_preference', side_effect=evaluate_side_effect), \
+             patch('rss_buddy.feed_processor.FeedProcessor.create_consolidated_summary', return_value=digest_entry):
+            
+            # Process the feed
+            self.feed_processor.days_lookback = 3
+            output_file = self.feed_processor.process_feed("https://example.com/feed")
+            
+            # Check that the output file was created
+            self.assertTrue(os.path.exists(output_file))
+            
+            # Parse the output file to check the entries
+            tree = ET.parse(output_file)
+            root = tree.getroot()
+            items = root.findall('.//item')
+            
+            # Should include article 1 (FULL) + the digest entry
+            self.assertEqual(len(items), 2)
+            
+            # Add a new article to the feed
+            new_entry_data = {
+                'title': 'Article 3',
+                'link': 'https://example.com/article3',
+                'id': 'article3',
+                'summary': 'This is article 3',
+                'published': now.strftime('%a, %d %b %Y %H:%M:%S %z')
+            }
+            
+            new_entry = MagicMock()
+            for key, value in new_entry_data.items():
+                setattr(new_entry, key, value)
+            # Add mocked get method returning string values
+            new_entry.get = lambda k, default=None, _entry=new_entry: str(getattr(_entry, k, default)) if hasattr(_entry, k) else default
+            mock_feed.entries.append(new_entry)
+            
+            # Process with updated digest
+            with patch('rss_buddy.feed_processor.FeedProcessor.create_consolidated_summary', return_value=updated_digest_entry):
+                # Process the feed again
+                output_file = self.feed_processor.process_feed("https://example.com/feed")
+                
+                # Parse the output file to check the entries
+                tree = ET.parse(output_file)
+                root = tree.getroot()
+                items = root.findall('.//item')
+                
+                # Due to state tracking, should only include the digest update
+                # Article 1 and 2 were already processed in the first run
+                self.assertEqual(len(items), 1)
+                
+                # Check titles for the digest
+                titles = [item.find('title').text for item in items]
+                self.assertIn('Updated Test Digest', titles)
 
 if __name__ == "__main__":
     unittest.main() 

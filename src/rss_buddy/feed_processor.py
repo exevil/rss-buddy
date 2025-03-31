@@ -6,7 +6,7 @@ import datetime
 from typing import Dict, List, Optional, Any, Tuple, Union
 import xml.etree.ElementTree as ET
 from email.utils import formatdate
-from datetime import timezone
+from datetime import timezone, timedelta
 
 from dateutil import parser
 import feedparser
@@ -144,7 +144,7 @@ class FeedProcessor:
                 return False
             
             # Get the cutoff date, which is timezone-aware (UTC)
-            cutoff_date = self.state_manager.get_recent_cutoff_date(days)
+            cutoff_date = datetime.datetime.now(timezone.utc) - timedelta(days=days)
             
             # Ensure the published date has timezone info
             if published_date.tzinfo is None:
@@ -263,171 +263,120 @@ class FeedProcessor:
             return None  # No need to update the digest
     
     def process_feed(self, feed_url: str) -> Union[str, None]:
-        """Process a single feed and create a filtered version.
+        """Process a feed, evaluating articles and creating filtered RSS files.
         
         Args:
-            feed_url: URL of the feed to process
+            feed_url: The URL of the RSS feed to process
             
         Returns:
             str: Path to the processed feed file or None if processing failed
         """
         print(f"Processing feed: {feed_url}")
         
-        # Fetch and parse the feed
+        # Fetch the feed
         feed = self.fetch_rss_feed(feed_url)
         if not feed:
             print(f"  Failed to fetch feed: {feed_url}")
             return None
         
-        # Extract feed data
-        feed_title = feed.feed.get('title', 'Untitled Feed')
-        feed_link = feed.feed.get('link', '')
-        feed_description = feed.feed.get('description', '')
-        print(f"  Feed: {feed_title}")
+        print(f"  Feed: {feed.feed.get('title')}")
         
-        # Debug: Print cutoff date
-        cutoff_date = self.state_manager.get_recent_cutoff_date(self.days_lookback)
-        print(f"  Looking for entries newer than: {cutoff_date.isoformat()}")
+        # Calculate the cutoff date for recent entries
+        cutoff_date = datetime.datetime.now(timezone.utc) - timedelta(days=self.days_lookback)
         
-        # Get entries and check if they're recent
-        entries = feed.entries
-        print(f"  Found {len(entries)} total entries in feed")
+        # Process entries
+        full_articles = []
+        summary_articles = []
+        processed_ids = set()
         
-        # First pass: identify recent entries
-        recent_entries = []
-        for entry in entries:
+        print(f"  Found {len(feed.entries)} total entries in feed")
+        
+        for entry in feed.entries:
             # Get entry date
-            entry_date = entry.get('published', entry.get('updated', None))
-            
-            # Try additional date fields if standard ones are missing
-            if not entry_date:
-                # Try additional feedparser date fields
-                for field in ['pubDate', 'date', 'created', 'modified']:
-                    if hasattr(entry, field) and getattr(entry, field):
-                        entry_date = getattr(entry, field)
-                        print(f"  Using alternate date field '{field}' for entry: '{entry.get('title', 'Untitled')}'")
-                        break
-            
-            # Debug: Show date evaluation
-            title = entry.get('title', 'Untitled')
-            if entry_date:
-                is_recent = self.is_recent(entry_date, self.days_lookback)
-                status = "recent" if is_recent else "old"
-                print(f"  Entry: '{title}' - Date: {entry_date} (without timezone) - Status: {status}")
-                
-                if is_recent:
-                    recent_entries.append(entry)
-            else:
-                print(f"  No date for entry: '{title}'")
-        
-        print(f"  Found {len(recent_entries)} recent entries")
-        
-        # Second pass: process each recent entry to determine if it should be shown in full or summarized
-        full_entries = []
-        summary_entries = []
-        
-        for entry in recent_entries:
-            # Generate a unique ID for the entry
+            entry_date = entry.get('published', entry.get('updated'))
             entry_id = self.generate_entry_id(entry)
             
-            # Get entry data
-            title = entry.get('title', 'Untitled')
-            link = entry.get('link', '')
-            description = entry.get('summary', '')
-            pub_date = entry.get('published', entry.get('updated', datetime.datetime.now().isoformat()))
+            # Check if entry is recent
+            is_recent_entry = self.is_recent(entry_date)
+            status = "recent" if is_recent_entry else "old"
+            print(f"  Entry: '{entry.get('title', 'Untitled')}' - Date: {entry_date} - Status: {status}")
             
-            # Create entry data structure
+            # Skip if not recent
+            if not is_recent_entry:
+                continue
+                
+            # Check if entry has been processed within lookback window
+            if self.state_manager.is_entry_processed(feed_url, entry_id, self.days_lookback):
+                print(f"  Already processed entry: {entry.get('title', 'Untitled')}")
+                continue
+                
+            # Store entry data for state tracking
             entry_data = {
-                'title': title,
-                'link': link,
-                'guid': entry_id,
-                'pubDate': pub_date,
-                'summary': description
+                "date": entry_date,
+                "title": entry.get('title', 'Untitled'),
+                "link": entry.get('link', ''),
+                "summary": entry.get('summary', '')
             }
             
-            # Determine categorization (full vs. summary)
-            preference = None
+            # Evaluate article preference
+            preference = self.evaluate_article_preference(
+                title=entry.get('title', ''),
+                summary=entry.get('summary', ''),
+                feed_url=feed_url
+            )
             
-            # Check if already processed
-            if self.state_manager.is_entry_processed(feed_url, entry_id):
-                print(f"  Already processed entry: {title}")
-                
-                # Look for known keywords to categorize without AI
-                if any(kw.lower() in title.lower() for kw in ["apple silicon", "vision pro", "ios", "final cut pro", "macbook", "iphone", "update"]):
-                    preference = "FULL"
-                else:
-                    preference = "SUMMARY"
-            else:
-                # Use AI to evaluate new article preference
-                preference = self.evaluate_article_preference(title, description, feed_url)
-                
-                # Mark as processed
-                self.state_manager.add_processed_entry(feed_url, entry_id, pub_date)
-            
-            # Add to appropriate list based on preference
             if preference == "FULL":
-                print(f"  Full article: {title}")
-                full_entries.append(entry_data)
+                full_articles.append(entry)
+                self.state_manager.add_processed_entry(feed_url, entry_id, entry_date, entry_data)
             else:
-                print(f"  Summarized article: {title}")
-                summary_entries.append(entry_data)
+                summary_articles.append(entry)
+                self.state_manager.add_processed_entry(feed_url, entry_id, entry_date, entry_data)
         
-        # Create a new RSS feed with all recent entries
-        root = ET.Element('rss')
-        root.set('version', '2.0')
+        # Create consolidated summary if needed
+        digest_entry = None
+        if summary_articles:
+            print(f"  Summarized article: {summary_articles[0].get('title', 'Untitled')}")
+            digest_entry = self.create_consolidated_summary(summary_articles, feed_url)
         
-        channel = ET.SubElement(root, 'channel')
-        ET.SubElement(channel, 'title').text = f"{feed_title} (Filtered)"
-        ET.SubElement(channel, 'link').text = feed_link
-        ET.SubElement(channel, 'description').text = f"AI-filtered version of {feed_title}: {feed_description}"
+        # Create output feed
+        output_file = os.path.join(self.output_dir, f"{feed.feed.get('title')}.xml")
+        
+        # Create feed tree
+        feed_tree = ET.Element('rss')
+        feed_tree.set('version', '2.0')
+        
+        channel = ET.SubElement(feed_tree, 'channel')
+        
+        # Add feed metadata
+        ET.SubElement(channel, 'title').text = f"{feed.feed.get('title')} (Filtered)"
+        ET.SubElement(channel, 'link').text = feed_url
+        ET.SubElement(channel, 'description').text = f"Filtered version of {feed.feed.get('title')}"
         ET.SubElement(channel, 'lastBuildDate').text = formatdate()
         
         # Add full articles
-        for entry in full_entries:
+        for entry in full_articles:
             item = ET.SubElement(channel, 'item')
-            ET.SubElement(item, 'title').text = entry['title']
-            ET.SubElement(item, 'link').text = entry['link']
-            ET.SubElement(item, 'guid').text = entry['guid']
-            ET.SubElement(item, 'pubDate').text = formatdate()
-            ET.SubElement(item, 'description').text = entry['summary']
+            ET.SubElement(item, 'title').text = entry.get('title', '')
+            ET.SubElement(item, 'link').text = entry.get('link', '')
+            ET.SubElement(item, 'description').text = entry.get('summary', '')
+            ET.SubElement(item, 'pubDate').text = entry.get('published', entry.get('updated', ''))
+            ET.SubElement(item, 'guid').text = self.generate_entry_id(entry)
         
-        # Create consolidated summary for less important articles
-        if summary_entries:
-            digest = self.create_consolidated_summary(summary_entries, feed_url)
-            if digest:
-                item = ET.SubElement(channel, 'item')
-                ET.SubElement(item, 'title').text = digest['title']
-                ET.SubElement(item, 'link').text = digest['link']
-                ET.SubElement(item, 'guid').text = digest['guid']
-                ET.SubElement(item, 'pubDate').text = digest['pubDate']
-                ET.SubElement(item, 'description').text = digest['description']
-                # Mark the consolidated item as a digest
-                ET.SubElement(item, 'consolidated').text = 'true'
-                # Store the article links for reference
-                article_links = {}
-                for article in summary_entries:
-                    article_links[article['title']] = article['link']
-                ET.SubElement(item, 'articleLinks').text = json.dumps(article_links)
+        # Add digest if available
+        if digest_entry:
+            item = ET.SubElement(channel, 'item')
+            ET.SubElement(item, 'title').text = digest_entry.get('title', '')
+            ET.SubElement(item, 'link').text = digest_entry.get('link', '')
+            ET.SubElement(item, 'description').text = digest_entry.get('summary', '')
+            ET.SubElement(item, 'pubDate').text = digest_entry.get('published', '')
+            ET.SubElement(item, 'guid').text = digest_entry.get('id', '')
         
-        # Count items for display
-        full_count = len(full_entries)
-        digest_count = 1 if summary_entries else 0
+        # Save the feed
+        tree = ET.ElementTree(feed_tree)
+        tree.write(output_file, encoding='utf-8', xml_declaration=True)
         
-        # Save the processed feed
-        output_filename = feed_title.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        output_filename = ''.join(c for c in output_filename if c.isalnum() or c == '_')
-        output_filename = f"{output_filename}.xml"
-        output_path = os.path.join(self.output_dir, output_filename)
-        
-        tree = ET.ElementTree(root)
-        tree.write(output_path, encoding='utf-8', xml_declaration=True)
-        
-        print(f"  Saved processed feed to {output_path} with {full_count} full articles and {digest_count} digests")
-        
-        # Save state
-        self.state_manager.save_state()
-        
-        return output_path
+        print(f"  Saved processed feed to {output_file} with {len(full_articles)} full articles and {1 if digest_entry else 0} digests")
+        return output_file
     
     def process_feeds(self, feed_urls: List[str]) -> List[str]:
         """Process multiple feeds.

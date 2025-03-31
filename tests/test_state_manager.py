@@ -246,6 +246,56 @@ class TestStateManager(unittest.TestCase):
         # Create a new state manager and check that the entry is still there
         new_state_manager = StateManager(output_dir=self.output_dir)
         self.assertTrue(new_state_manager.is_entry_processed(feed_url, entry_id))
+    
+    def test_is_entry_processed_with_lookback(self):
+        """Test checking if an entry has been processed within the lookback window."""
+        feed_url = "https://example.com/feed.xml"
+        entry_id = "test_entry_1"
+        
+        # Create a state manager with empty state
+        state_manager = StateManager(output_dir=self.output_dir)
+        
+        # Add an entry with a date from 5 days ago
+        old_date = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+        state_manager.add_processed_entry(
+            feed_url=feed_url,
+            entry_id=entry_id,
+            entry_date=old_date,
+            entry_data={"date": old_date}
+        )
+        
+        # With 3-day lookback, entry should not be considered processed
+        self.assertFalse(state_manager.is_entry_processed(feed_url, entry_id, days_lookback=3))
+        
+        # With 7-day lookback, entry should be considered processed
+        self.assertTrue(state_manager.is_entry_processed(feed_url, entry_id, days_lookback=7))
+        
+        # Add a newer entry
+        new_entry_id = "test_entry_2"
+        new_date = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        state_manager.add_processed_entry(
+            feed_url=feed_url,
+            entry_id=new_entry_id,
+            entry_date=new_date,
+            entry_data={"date": new_date}
+        )
+        
+        # New entry should be considered processed with 3-day lookback
+        self.assertTrue(state_manager.is_entry_processed(feed_url, new_entry_id, days_lookback=3))
+        
+        # Test with missing date data
+        no_date_entry_id = "test_entry_3"
+        state_manager.add_processed_entry(feed_url, no_date_entry_id)
+        self.assertTrue(state_manager.is_entry_processed(feed_url, no_date_entry_id, days_lookback=3))
+        
+        # Test with invalid date data
+        invalid_date_entry_id = "test_entry_4"
+        state_manager.add_processed_entry(
+            feed_url=feed_url,
+            entry_id=invalid_date_entry_id,
+            entry_data={"date": "invalid date"}
+        )
+        self.assertTrue(state_manager.is_entry_processed(feed_url, invalid_date_entry_id, days_lookback=3))
 
 if __name__ == "__main__":
     unittest.main() 

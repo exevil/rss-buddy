@@ -3,6 +3,7 @@ import os
 import json
 import hashlib
 from datetime import datetime, timedelta, timezone
+from dateutil import parser
 
 class StateManager:
     """Manages the state of processed articles to avoid reprocessing."""
@@ -75,6 +76,7 @@ class StateManager:
             self.state["feeds"][feed_url] = {
                 "processed_ids": [], 
                 "last_entry_date": None,
+                "entry_data": {},  # Store additional data for each entry
                 "digest": {
                     "id": None,
                     "content_hash": None,
@@ -84,17 +86,69 @@ class StateManager:
             }
         return self.state["feeds"][feed_url]
     
-    def is_entry_processed(self, feed_url, entry_id):
-        """Check if an entry with the given ID has been processed for the feed."""
+    def is_entry_processed(self, feed_url, entry_id, days_lookback=None):
+        """Check if an entry with the given ID has been processed for the feed.
+        
+        Args:
+            feed_url: The URL of the feed
+            entry_id: The ID of the entry
+            days_lookback: Number of days to look back. If None, only check if ID exists.
+            
+        Returns:
+            bool: True if entry is processed and within lookback window (if specified)
+        """
         feed_state = self.get_processed_entries(feed_url)
-        return entry_id in feed_state["processed_ids"]
+        
+        # If entry is not in processed list, it's not processed
+        if entry_id not in feed_state["processed_ids"]:
+            return False
+            
+        # If no lookback window specified, just check if it exists
+        if days_lookback is None:
+            return True
+            
+        # Get entry data to check date
+        entry_data = feed_state.get("entry_data", {}).get(entry_id)
+        if not entry_data or "date" not in entry_data:
+            return True  # If we can't determine date, consider it processed
+            
+        try:
+            entry_date = parser.parse(entry_data["date"])
+            if entry_date.tzinfo is None:
+                entry_date = entry_date.replace(tzinfo=timezone.utc)
+                
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_lookback)
+            return entry_date > cutoff_date
+        except Exception:
+            return True  # If we can't parse the date, consider it processed
     
-    def add_processed_entry(self, feed_url, entry_id, entry_date=None):
-        """Add an entry ID to the list of processed entries for the feed."""
+    def get_entry_data(self, feed_url, entry_id):
+        """Get stored data for a processed entry.
+        
+        Args:
+            feed_url: The URL of the feed
+            entry_id: The ID of the entry
+            
+        Returns:
+            dict: Stored data for the entry or None if not found
+        """
+        feed_state = self.get_processed_entries(feed_url)
+        return feed_state.get("entry_data", {}).get(entry_id)
+    
+    def add_processed_entry(self, feed_url, entry_id, entry_date=None, entry_data=None):
+        """Add an entry ID to the list of processed entries for the feed.
+        
+        Args:
+            feed_url: The URL of the feed
+            entry_id: The ID of the entry
+            entry_date: The date of the entry
+            entry_data: Additional data to store for the entry
+        """
         if feed_url not in self.state["feeds"]:
             self.state["feeds"][feed_url] = {
                 "processed_ids": [], 
                 "last_entry_date": None,
+                "entry_data": {},
                 "digest": {
                     "id": None,
                     "content_hash": None,
@@ -103,7 +157,7 @@ class StateManager:
                 }
             }
         
-        # Add entry to processed list
+        # Add entry to processed list if not already present
         if entry_id not in self.state["feeds"][feed_url]["processed_ids"]:
             self.state["feeds"][feed_url]["processed_ids"].append(entry_id)
         
@@ -113,11 +167,24 @@ class StateManager:
             if not current_date or entry_date > current_date:
                 self.state["feeds"][feed_url]["last_entry_date"] = entry_date
         
+        # Store additional entry data if provided
+        if entry_data:
+            if "entry_data" not in self.state["feeds"][feed_url]:
+                self.state["feeds"][feed_url]["entry_data"] = {}
+            self.state["feeds"][feed_url]["entry_data"][entry_id] = entry_data
+        
         # Limit the number of stored IDs to prevent unlimited growth
         max_ids = 1000  # Store at most 1000 IDs per feed
         if len(self.state["feeds"][feed_url]["processed_ids"]) > max_ids:
-            # Keep only the most recent IDs
-            self.state["feeds"][feed_url]["processed_ids"] = self.state["feeds"][feed_url]["processed_ids"][-max_ids:]
+            # Keep only the most recent IDs and their data
+            recent_ids = self.state["feeds"][feed_url]["processed_ids"][-max_ids:]
+            self.state["feeds"][feed_url]["processed_ids"] = recent_ids
+            if "entry_data" in self.state["feeds"][feed_url]:
+                # Keep only data for recent IDs
+                self.state["feeds"][feed_url]["entry_data"] = {
+                    k: v for k, v in self.state["feeds"][feed_url]["entry_data"].items()
+                    if k in recent_ids
+                }
     
     def get_last_entry_date(self, feed_url):
         """Get the date of the last processed entry for the feed."""
