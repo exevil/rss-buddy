@@ -113,13 +113,25 @@ class StateManager:
             return True  # If we can't determine date, consider it processed
             
         try:
-            entry_date = parser.parse(entry_data["date"])
+            # Common problematic timezone abbreviations and their approximate UTC offsets
+            timezone_replacements = {
+                'PDT': '-0700', 'PST': '-0800', 
+                'EDT': '-0400', 'EST': '-0500',
+                'CEST': '+0200', 'CET': '+0100',
+                'AEST': '+1000', 'AEDT': '+1100'
+            }
+            
+            def tzinfos(tzname, offset):
+                return timezone_replacements.get(tzname, None)
+            
+            entry_date = parser.parse(entry_data["date"], tzinfos=tzinfos)
             if entry_date.tzinfo is None:
                 entry_date = entry_date.replace(tzinfo=timezone.utc)
                 
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_lookback)
-            return entry_date > cutoff_date
-        except Exception:
+            return entry_date >= cutoff_date
+        except Exception as e:
+            print(f"Failed to parse date for entry {entry_id} in feed {feed_url}")
             return True  # If we can't parse the date, consider it processed
     
     def get_entry_data(self, feed_url, entry_id):

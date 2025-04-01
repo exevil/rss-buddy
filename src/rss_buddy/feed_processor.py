@@ -84,7 +84,7 @@ class FeedProcessor:
             published_date = None
             # First attempt: Try standard parsing
             try:
-                published_date = parser.parse(entry_date)
+                published_date = parser.parse(entry_date, tzinfos=tzinfos)
             except Exception as e:
                 # First exception caught, continue with fallbacks
                 pass
@@ -107,24 +107,21 @@ class FeedProcessor:
                     'AEST': '+1000', 'AEDT': '+1100'
                 }
                 
-                def tzinfos(tzname):
+                def tzinfos(tzname, offset):
                     return timezone_replacements.get(tzname, None)
                 
+                normalized_date = entry_date
+                for tz, offset in timezone_replacements.items():
+                    if tz in entry_date:
+                        # Replace the problematic timezone with its UTC offset
+                        normalized_date = entry_date.replace(tz, offset)
+                        break
+                
                 try:
-                    published_date = parser.parse(entry_date, tzinfos=tzinfos)
+                    published_date = parser.parse(normalized_date, tzinfos=tzinfos)
                 except Exception as e:
-                    # If tzinfos fails, try replacing the timezone abbreviation
-                    normalized_date = entry_date
-                    for tz, offset in timezone_replacements.items():
-                        if tz in entry_date:
-                            normalized_date = entry_date.replace(tz, offset)
-                            break
-                    
-                    try:
-                        published_date = parser.parse(normalized_date)
-                    except Exception as e:
-                        # Third exception caught, one final attempt with a stricter format
-                        pass
+                    # Third exception caught, one final attempt with a stricter format
+                    pass
             
             # Fourth attempt: Strip all timezone info and assume UTC
             if published_date is None:
@@ -138,7 +135,7 @@ class FeedProcessor:
                         date_str = date_match.group(0)
                         time_str = time_match.group(0)
                         simple_date = f"{date_str} {time_str}"
-                        published_date = parser.parse(simple_date)
+                        published_date = parser.parse(simple_date, tzinfos=tzinfos)
                 except Exception as e:
                     # All attempts failed
                     print(f"All parsing attempts failed for date: {entry_date} - {e}")
@@ -311,11 +308,6 @@ class FeedProcessor:
             if not is_recent_entry:
                 continue
                 
-            # Check if entry has been processed within lookback window
-            if self.state_manager.is_entry_processed(feed_url, entry_id, self.days_lookback):
-                print(f"  Already processed entry: {entry.get('title', 'Untitled')}")
-                continue
-                
             # Store entry data for state tracking
             entry_data = {
                 "date": entry_date,
@@ -324,12 +316,29 @@ class FeedProcessor:
                 "summary": entry.get('summary', '')
             }
             
+            # Check if entry has been processed within lookback window
+            if self.state_manager.is_entry_processed(feed_url, entry_id, self.days_lookback):
+                print(f"  Already processed entry: {entry.get('title', 'Untitled')}")
+                
+                # Get the stored entry data if available
+                stored_data = self.state_manager.get_entry_data(feed_url, entry_id)
+                if stored_data and "preference" in stored_data:
+                    # Use the stored preference to determine category
+                    if stored_data["preference"] == "FULL":
+                        full_articles.append(entry)
+                    else:
+                        summary_articles.append(entry)
+                continue
+                
             # Evaluate article preference
             preference = self.evaluate_article_preference(
                 title=entry.get('title', ''),
                 summary=entry.get('summary', ''),
                 feed_url=feed_url
             )
+            
+            # Add preference to the entry data
+            entry_data["preference"] = preference
             
             if preference == "FULL":
                 full_articles.append(entry)
@@ -373,9 +382,9 @@ class FeedProcessor:
             item = ET.SubElement(channel, 'item')
             ET.SubElement(item, 'title').text = digest_entry.get('title', '')
             ET.SubElement(item, 'link').text = digest_entry.get('link', '')
-            ET.SubElement(item, 'description').text = digest_entry.get('summary', '')
-            ET.SubElement(item, 'pubDate').text = digest_entry.get('published', '')
-            ET.SubElement(item, 'guid').text = digest_entry.get('id', '')
+            ET.SubElement(item, 'description').text = digest_entry.get('description', '')
+            ET.SubElement(item, 'pubDate').text = digest_entry.get('pubDate', '')
+            ET.SubElement(item, 'guid').text = digest_entry.get('guid', '')
         
         # Save the feed
         tree = ET.ElementTree(feed_tree)
