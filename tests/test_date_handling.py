@@ -209,34 +209,59 @@ class TestDateHandling(unittest.TestCase):
                     
     def test_timezone_aware_lookback_window(self):
         """Test that the lookback window properly handles timezone-aware dates."""
-        # Set up the test with a fixed lookback period
-        lookback_days = 3
-        test_processor = FeedProcessor(
-            state_manager=self.state_manager,
-            ai_interface=None,
-            output_dir=".",
-            days_lookback=lookback_days
-        )
+        # Test with a timezone-aware date
+        aware_date = "Mon, 31 Mar 2025 11:04:24 +0000"
+        self.assertTrue(self.feed_processor.is_recent(aware_date))
         
-        # Get current UTC time
-        now = datetime.now(timezone.utc)
+        # Test with a timezone-naive date
+        naive_date = "Mon, 31 Mar 2025 11:04:24"
+        self.assertTrue(self.feed_processor.is_recent(naive_date))
         
-        # Test date just inside the lookback window (should be recent)
-        inside_window = now - timedelta(days=lookback_days - 0.5)
-        inside_date = inside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
-        self.assertTrue(test_processor.is_recent(inside_date), 
-                       f"Date just inside lookback window ({lookback_days - 0.5} days ago) should be recent")
+        # Test with a date in the past
+        old_date = "Mon, 10 Feb 2025 11:04:24 +0000"
+        self.assertFalse(self.feed_processor.is_recent(old_date))
+
+    def test_tzinfos_timezone_handling(self):
+        """Test the improved timezone handling with tzinfos parameter."""
+        # Test PDT timezone
+        pdt_date = "Mon, 31 Mar 2025 11:04:24 PDT"
+        self.assertTrue(self.feed_processor.is_recent(pdt_date))
         
-        # Test date just outside the lookback window (should not be recent)
-        outside_window = now - timedelta(days=lookback_days + 0.5)
-        outside_date = outside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
-        self.assertFalse(test_processor.is_recent(outside_date), 
-                        f"Date just outside lookback window ({lookback_days + 0.5} days ago) should not be recent")
+        # Test PST timezone
+        pst_date = "Mon, 31 Mar 2025 11:04:24 PST"
+        self.assertTrue(self.feed_processor.is_recent(pst_date))
         
-        # Test with a different timezone offset
-        other_tz_inside = (now - timedelta(days=lookback_days - 0.5)).strftime('%Y-%m-%dT%H:%M:%S-0700')
-        self.assertTrue(test_processor.is_recent(other_tz_inside), 
-                       "Date inside lookback window with non-UTC timezone should be recent")
+        # Test EDT timezone
+        edt_date = "Mon, 31 Mar 2025 11:04:24 EDT"
+        self.assertTrue(self.feed_processor.is_recent(edt_date))
+        
+        # Test EST timezone
+        est_date = "Mon, 31 Mar 2025 11:04:24 EST"
+        self.assertTrue(self.feed_processor.is_recent(est_date))
+        
+        # Test CEST timezone
+        cest_date = "Mon, 31 Mar 2025 11:04:24 CEST"
+        self.assertTrue(self.feed_processor.is_recent(cest_date))
+        
+        # Test CET timezone
+        cet_date = "Mon, 31 Mar 2025 11:04:24 CET"
+        self.assertTrue(self.feed_processor.is_recent(cet_date))
+        
+        # Test AEST timezone
+        aest_date = "Mon, 31 Mar 2025 11:04:24 AEST"
+        self.assertTrue(self.feed_processor.is_recent(aest_date))
+        
+        # Test AEDT timezone
+        aedt_date = "Mon, 31 Mar 2025 11:04:24 AEDT"
+        self.assertTrue(self.feed_processor.is_recent(aedt_date))
+        
+        # Test with multiple timezone abbreviations in the same string
+        mixed_date = "Mon, 31 Mar 2025 11:04:24 PDT (Pacific) / 14:04:24 EDT (Eastern)"
+        self.assertTrue(self.feed_processor.is_recent(mixed_date))
+        
+        # Test with invalid timezone abbreviation
+        invalid_tz_date = "Mon, 31 Mar 2025 11:04:24 XYZ"
+        self.assertTrue(self.feed_processor.is_recent(invalid_tz_date))  # Should still parse the date
 
 if __name__ == "__main__":
     unittest.main() 

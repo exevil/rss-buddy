@@ -110,18 +110,21 @@ class FeedProcessor:
                 def tzinfos(tzname):
                     return timezone_replacements.get(tzname, None)
                 
-                normalized_date = entry_date
-                for tz, offset in timezone_replacements.items():
-                    if tz in entry_date:
-                        # Replace the problematic timezone with its UTC offset
-                        normalized_date = entry_date.replace(tz, offset)
-                        break
-                
                 try:
-                    published_date = parser.parse(normalized_date, tzinfos=tzinfos)
+                    published_date = parser.parse(entry_date, tzinfos=tzinfos)
                 except Exception as e:
-                    # Third exception caught, one final attempt with a stricter format
-                    pass
+                    # If tzinfos fails, try replacing the timezone abbreviation
+                    normalized_date = entry_date
+                    for tz, offset in timezone_replacements.items():
+                        if tz in entry_date:
+                            normalized_date = entry_date.replace(tz, offset)
+                            break
+                    
+                    try:
+                        published_date = parser.parse(normalized_date)
+                    except Exception as e:
+                        # Third exception caught, one final attempt with a stricter format
+                        pass
             
             # Fourth attempt: Strip all timezone info and assume UTC
             if published_date is None:

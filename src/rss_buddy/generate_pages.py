@@ -131,30 +131,44 @@ def generate_pages(input_dir='processed_feeds', output_dir='docs'):
     if os.path.exists(input_dir) and os.path.isdir(input_dir):
         for file in os.listdir(input_dir):
             if file.endswith('.xml'):
-                file_path = os.path.join(input_dir, file)
                 try:
-                    tree = ET.parse(file_path)
+                    feed_path = os.path.join(input_dir, file)
+                    tree = ET.parse(feed_path)
                     root = tree.getroot()
                     
-                    channel = root.find('channel')
-                    if channel is not None:
-                        title = channel.find('title').text if channel.find('title') is not None else 'Untitled Feed'
-                        link = channel.find('link').text if channel.find('link') is not None else '#'
-                        description = channel.find('description').text if channel.find('description') is not None else 'No description'
-                        last_build_date = channel.find('lastBuildDate').text if channel.find('lastBuildDate') is not None else datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')
-                        
-                        # Get item counts
-                        items = channel.findall('item')
-                        regular_count = 0
-                        digest_count = 0
-                        
-                        # Create detailed HTML feed page
-                        feed_html = f'''<!DOCTYPE html>
+                    # Get feed title
+                    title = root.find('.//title')
+                    if title is not None:
+                        title_text = title.text
+                    else:
+                        title_text = file.replace('.xml', '')
+                    
+                    # Get feed description
+                    description = root.find('.//description')
+                    description_text = description.text if description is not None else ''
+                    
+                    # Get feed link
+                    link = root.find('.//link')
+                    link_text = link.text if link is not None else '#'
+                    
+                    # Get feed items
+                    items = root.findall('.//item')
+                    
+                    html_content += f'''
+                    <li>
+                        <a href="{html.escape(link_text)}">{html.escape(title_text)}</a>
+                        <div class="feed-description">{html.escape(description_text)}</div>
+                        <div class="updated">Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+                    </li>
+                    '''
+                    
+                    # Create detailed HTML feed page
+                    feed_html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{html.escape(title)}</title>
+    <title>{html.escape(title_text)}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -197,92 +211,68 @@ def generate_pages(input_dir='processed_feeds', output_dir='docs'):
 </head>
 <body>
     <a href="index.html" class="back-link">← Back to all feeds</a>
-    <h1>{html.escape(title)}</h1>
-    <p>{html.escape(description)}</p>
-    <p><small>Last updated: {html.escape(last_build_date)}</small></p>
+    <h1>{html.escape(title_text)}</h1>
+    <p>{html.escape(description_text)}</p>
+    <p><small>Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</small></p>
     
     <div>
 '''
-                        
-                        for item in items:
-                            item_title = item.find('title').text if item.find('title') is not None else 'Untitled Item'
-                            item_link = item.find('link').text if item.find('link') is not None else '#'
-                            item_desc = item.find('description').text if item.find('description') is not None else 'No description'
-                            item_date = item.find('pubDate').text if item.find('pubDate') is not None else ''
+                    
+                    for item in items:
+                        try:
+                            item_title = item.find('title')
+                            item_link = item.find('link')
+                            item_description = item.find('description')
                             
-                            is_consolidated = item.find('consolidated') is not None and item.find('consolidated').text == 'true'
-                            
-                            if is_consolidated:
-                                digest_count += 1
+                            if item_title is not None and item_link is not None:
+                                title_text = item_title.text or ''
+                                link_text = item_link.text or '#'
+                                description_text = item_description.text if item_description is not None else ''
                                 
-                                # Try to get article links from the item
-                                article_links = {}
-                                if item.find('articleLinks') is not None:
-                                    try:
-                                        article_links = json.loads(item.find('articleLinks').text)
-                                    except:
-                                        pass
+                                # Check if this is a digest item
+                                is_digest = 'digest' in title_text.lower()
                                 
-                                feed_html += f'''
+                                if is_digest:
+                                    html_content += f'''
         <div class="digest">
-            <h2><a href="{html.escape(item_link)}">{html.escape(item_title)}</a></h2>
-            <div class="article-meta">{html.escape(item_date)}</div>
-            <div>{item_desc}</div>
+            <h2><a href="{html.escape(link_text)}">{html.escape(title_text)}</a></h2>
+            <div class="article-meta">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+            <div>{html.escape(description_text)}</div>
 '''
-
-                                # If we have article links but they're not in the description, add them
-                                if article_links and '<a href' not in item_desc:
-                                    feed_html += '''
-            <div class="article-links">
-                <h3>Included Articles:</h3>
-                <ul>
-'''
-                                    for title, link in article_links.items():
-                                        feed_html += f'                    <li><a href="{html.escape(link)}">{html.escape(title)}</a></li>\n'
-                                    feed_html += '''
-                </ul>
-            </div>
-'''
-
-                                feed_html += '''
-        </div>
-'''
-                            else:
-                                regular_count += 1
-                                feed_html += f'''
+                                else:
+                                    html_content += f'''
         <div class="article">
-            <h2><a href="{html.escape(item_link)}">{html.escape(item_title)}</a></h2>
-            <div class="article-meta">{html.escape(item_date)}</div>
-            <div>{item_desc}</div>
+            <h2><a href="{html.escape(link_text)}">{html.escape(title_text)}</a></h2>
+            <div class="article-meta">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+            <div>{html.escape(description_text)}</div>
         </div>
 '''
-                        
-                        feed_html += '''
+                        except Exception as e:
+                            print(f"Error processing item in {file}: {e}")
+                            continue
+                    
+                    feed_html += '''
     </div>
 </body>
 </html>
 '''
-                        
-                        # Write feed HTML file
-                        feed_html_file = os.path.join(output_dir, os.path.splitext(file)[0] + '.html')
-                        with open(feed_html_file, 'w', encoding='utf-8') as f:
-                            f.write(feed_html)
-                        
-                        feeds_list.append({
-                            'title': title,
-                            'url': file,
-                            'html_url': os.path.splitext(file)[0] + '.html',
-                            'description': description,
-                            'lastUpdated': last_build_date,
-                            'regularItems': regular_count,
-                            'digestItems': digest_count
-                        })
-                        
-                        html_content += f'''        <li>
-            <a href="{os.path.splitext(file)[0] + '.html'}">{html.escape(title)}</a>
-            <div class="feed-description">{html.escape(description)}</div>
-            <div class="feed-description">{regular_count} focused articles and {digest_count} digest item{'' if digest_count == 1 else 's'}</div>
-            <div class="updated">Last updated: {html.escape(last_build_date)}</div>
+                    
+                    # Write feed HTML file
+                    feed_html_file = os.path.join(output_dir, os.path.splitext(file)[0] + '.html')
+                    with open(feed_html_file, 'w', encoding='utf-8') as f:
+                        f.write(feed_html)
+                    
+                    feeds_list.append({
+                        'title': title_text,
+                        'link': link_text,
+                        'description': description_text,
+                        'item_count': len(items)
+                    })
+                    
+                    html_content += f'''        <li>
+            <a href="{os.path.splitext(file)[0] + '.html'}">{html.escape(title_text)}</a>
+            <div class="feed-description">{html.escape(description_text)}</div>
+            <div class="updated">Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
         </li>
 '''
                 except Exception as e:
