@@ -141,14 +141,41 @@ This optimizes AI usage while maintaining a comprehensive feed.
 - `run_rss_buddy.py`: Command-line runner
 - `run_tests.py`: Test runner
 - `rss-buddy.sh`: Convenience shell script
+- `lint.py`: Linting script
 
 ### Running Tests
 
 ```
-./run_tests.py [-v]
+./run_tests.py [-v] [--skip-lint] [--lint-only] [--lint-paths PATH1 PATH2...]
 ```
 
 The test suite covers state management, AI interface, feed processing, and date handling without requiring an actual OpenAI API key.
+
+By default, running tests will also run the linter. Use the `--skip-lint` option to skip linting, or `--lint-only` to run only the linter.
+
+### Linting
+
+The project uses flake8 for code quality checks. Linting is automatically run when executing tests, but you can also run it separately:
+
+```
+./lint.py [--paths PATH1 PATH2...] [--statistics] [--count]
+```
+
+or
+
+```
+./run_tests.py --lint-only [--lint-paths PATH1 PATH2...]
+```
+
+Linter settings are configured in the `.flake8` file at the root of the project. You can modify these settings to adjust the linting rules:
+
+- `max-line-length`: Maximum allowed line length (default: 100)
+- `exclude`: Directories and files to exclude from linting
+- `ignore`: Error codes to ignore
+- `docstring-convention`: Style for docstrings (google)
+- `max-complexity`: Maximum allowed cyclomatic complexity
+
+The linter and tests are automatically run on GitHub via CI workflows whenever code is pushed to the main branch or in pull requests.
 
 ## GitHub Pages Integration
 
