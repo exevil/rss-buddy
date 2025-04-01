@@ -18,40 +18,46 @@ def parse_args():
     
     parser.add_argument(
         "--api-key", 
-        help="OpenAI API key (overrides environment variable)"
+        required=True,
+        help="OpenAI API key (required)"
     )
     
     parser.add_argument(
         "--feeds", 
-        help="Comma-separated list of RSS feed URLs to process"
+        required=True,
+        help="Comma-separated list of RSS feed URLs to process (required)"
     )
     
     parser.add_argument(
         "--output-dir", 
         default="processed_feeds",
-        help="Directory to store processed feeds"
+        help="Directory to store processed feeds (default: processed_feeds)"
     )
     
     parser.add_argument(
         "--days-lookback", 
-        type=int, 
-        help="Number of days to look back for articles"
+        type=int,
+        required=True, 
+        help="Number of days to look back for articles (required)"
     )
     
     parser.add_argument(
         "--model", 
-        help="OpenAI model to use"
+        required=True,
+        help="OpenAI model to use (required)"
     )
     
     parser.add_argument(
         "--max-tokens", 
-        type=int, 
-        help="Maximum tokens for summaries"
+        type=int,
+        required=True, 
+        help="Maximum tokens for summaries (required)"
     )
     
     parser.add_argument(
         "--criteria", 
-        help="User preference criteria"
+        required=True,
+        help="User preference criteria for article evaluation (required)"
     )
     
     parser.add_argument(
@@ -69,27 +75,14 @@ def main():
     
     args = parse_args()
     
-    # Override environment variables with command-line arguments
-    if args.api_key:
-        os.environ["OPENAI_API_KEY"] = args.api_key
-    
-    if args.feeds:
-        os.environ["RSS_FEEDS"] = args.feeds
-    
-    if args.output_dir:
-        os.environ["OUTPUT_DIR"] = args.output_dir
-    
-    if args.days_lookback:
-        os.environ["DAYS_LOOKBACK"] = str(args.days_lookback)
-    
-    if args.model:
-        os.environ["AI_MODEL"] = args.model
-    
-    if args.max_tokens:
-        os.environ["SUMMARY_MAX_TOKENS"] = str(args.max_tokens)
-    
-    if args.criteria:
-        os.environ["USER_PREFERENCE_CRITERIA"] = args.criteria
+    # Set environment variables from command-line arguments
+    os.environ["OPENAI_API_KEY"] = args.api_key
+    os.environ["RSS_FEEDS"] = args.feeds
+    os.environ["OUTPUT_DIR"] = args.output_dir
+    os.environ["DAYS_LOOKBACK"] = str(args.days_lookback)
+    os.environ["AI_MODEL"] = args.model
+    os.environ["SUMMARY_MAX_TOKENS"] = str(args.max_tokens)
+    os.environ["USER_PREFERENCE_CRITERIA"] = args.criteria
     
     # Run RSS Buddy
     exit_code = rss_buddy_main()
