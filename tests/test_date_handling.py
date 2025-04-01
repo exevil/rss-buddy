@@ -211,9 +211,15 @@ class TestDateHandling(unittest.TestCase):
         """Test that the lookback window properly handles timezone-aware dates."""
         # Set up the test with a fixed lookback period
         lookback_days = 3
+        
+        # Create a mock AI interface
+        mock_ai = MagicMock()
+        mock_ai.evaluate_article_preference.return_value = "FULL"
+        mock_ai.generate_consolidated_summary.return_value = "This is a consolidated summary"
+        
         test_processor = FeedProcessor(
             state_manager=self.state_manager,
-            ai_interface=None,
+            ai_interface=mock_ai,
             output_dir=".",
             days_lookback=lookback_days
         )
