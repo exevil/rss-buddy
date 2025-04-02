@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Run all tests for the RSS Buddy project.
-"""
+"""Run all tests for the RSS Buddy project."""
+import argparse
 import os
+import subprocess
 import sys
 import unittest
-import argparse
-import subprocess
+
 
 def run_lint(paths=None, skip_on_fail=False):
     """Run the linter on the codebase.
@@ -31,6 +30,7 @@ def run_lint(paths=None, skip_on_fail=False):
     
     return 0
 
+
 def run_tests(verbosity=1):
     """Run all tests in the tests directory."""
     # Add src directory to path to allow importing our package
@@ -44,6 +44,7 @@ def run_tests(verbosity=1):
     
     # Return appropriate exit code (0 for success, 1 for failure)
     return 0 if result.wasSuccessful() else 1
+
 
 def parse_args():
     """Parse command-line arguments."""
@@ -75,6 +76,7 @@ def parse_args():
     
     return parser.parse_args()
 
+
 def main():
     """Run linting and tests based on command-line arguments."""
     args = parse_args()
@@ -92,6 +94,7 @@ def main():
         return run_tests(verbosity)
     
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main()) 

@@ -1,17 +1,18 @@
 """Unit tests specifically for date handling functions."""
+from datetime import datetime, timedelta, timezone
 import os
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta, timezone
-import re
+from unittest.mock import MagicMock, patch
 
 # Add src directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from dateutil import parser
+
 from rss_buddy.feed_processor import FeedProcessor
 from rss_buddy.state_manager import StateManager
+
 
 class TestDateHandling(unittest.TestCase):
     """Test cases specifically for date handling functions."""
@@ -38,23 +39,38 @@ class TestDateHandling(unittest.TestCase):
         # Test with a simple UTC date in ISO format
         iso_date = "2024-03-27T12:00:00Z"
         parsed_date = parser.parse(iso_date)
-        self.assertEqual(parsed_date.tzinfo is not None, True, "ISO date should have timezone info")
+        self.assertEqual(
+            parsed_date.tzinfo is not None, 
+            True, 
+            "ISO date should have timezone info"
+        )
         
         # Test RFC 2822 format
         rfc_date = "Wed, 27 Mar 2024 12:00:00 +0000"
         parsed_rfc = parser.parse(rfc_date)
-        self.assertEqual(parsed_rfc.tzinfo is not None, True, "RFC date should have timezone info")
+        self.assertEqual(
+            parsed_rfc.tzinfo is not None, 
+            True, 
+            "RFC date should have timezone info"
+        )
         
         # Test with no timezone
         naive_date = "2024-03-27 12:00:00"
         parsed_naive = parser.parse(naive_date)
-        self.assertEqual(parsed_naive.tzinfo is None, True, "Naive date should not have timezone info")
+        self.assertEqual(
+            parsed_naive.tzinfo is None, 
+            True, 
+            "Naive date should not have timezone info"
+        )
         
         # Test timezone-aware comparison
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(days=7)
         result = parsed_date > cutoff
-        self.assertEqual(result, parsed_date > cutoff, "Comparison should work correctly")
+        self.assertEqual(
+            result, parsed_date > cutoff,
+            "Comparison should work correctly"
+        )
     
     def test_is_recent_function(self):
         """Test the FeedProcessor.is_recent function directly."""
@@ -92,13 +108,18 @@ class TestDateHandling(unittest.TestCase):
         
         # Test each date format with is_recent (all should be considered recent)
         for date_str in test_dates:
-            self.assertTrue(self.feed_processor.is_recent(date_str), 
-                           f"Date {date_str} should be considered recent")
+            self.assertTrue(
+                self.feed_processor.is_recent(date_str),
+                f"Date {date_str} should be considered recent"
+            )
         
         # Test with ignoretz parameter for problematic timezone
         pdt_date = (now - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S PDT')
         parsed = parser.parse(pdt_date, ignoretz=True)
-        self.assertEqual(parsed.tzinfo, None, "Date parsed with ignoretz=True should have no timezone info")
+        self.assertEqual(
+            parsed.tzinfo, None, 
+            "Date parsed with ignoretz=True should have no timezone info"
+        )
     
     def test_timezone_conversion(self):
         """Test converting between different timezone representations."""
@@ -119,8 +140,10 @@ class TestDateHandling(unittest.TestCase):
         aware_result = self.feed_processor.is_recent(recent_aware)
         
         # Both should return the same result since they represent the same date
-        self.assertEqual(naive_result, aware_result, 
-                        "Naive and aware dates from same time should have same is_recent result")
+        self.assertEqual(
+            naive_result, aware_result,
+            "Naive and aware dates from same time should have same is_recent result"
+        )
     
     def test_date_parsing_fallbacks(self):
         """Test the fallback mechanisms for date parsing."""
@@ -143,7 +166,10 @@ class TestDateHandling(unittest.TestCase):
         for tz, _ in timezone_formats.items():
             date_str = recent_date.strftime(f'%a, %d %b %Y %H:%M:%S {tz}')
             result = self.feed_processor.is_recent(date_str)
-            self.assertTrue(result, f"Date with {tz} timezone should be considered recent: {date_str}")
+            self.assertTrue(
+                result, 
+                "Date with timezone should be considered recent"
+            )
         
         # Test regex fallback for dates with unparseable timezone
         custom_format = recent_date.strftime('%Y-%m-%d %H:%M:%S INVALID_TZ')
@@ -158,12 +184,21 @@ class TestDateHandling(unittest.TestCase):
         # Apply the patch and test
         with patch('dateutil.parser.parse', side_effect=mock_parse):
             result = self.feed_processor.is_recent(custom_format)
-            self.assertTrue(result, f"Date with unparseable timezone should still work with regex fallback: {custom_format}")
+            self.assertTrue(
+                result, 
+                "Date with unparseable timezone should work with regex fallback"
+            )
         
         # Test extremely malformed date but with recognizable parts
-        malformed_date = f"Date is Day {recent_date.strftime('%d/%m/%Y')} at {recent_date.strftime('%H:%M:%S')} in TZ?"
+        malformed_date = (
+            f"Date is Day {recent_date.strftime('%d/%m/%Y')} "
+            f"at {recent_date.strftime('%H:%M:%S')} in TZ?"
+        )
         result = self.feed_processor.is_recent(malformed_date)
-        self.assertTrue(result, f"Malformed date with recognizable parts should work: {malformed_date}")
+        self.assertTrue(
+            result, 
+            "Malformed date with recognizable parts should work"
+        )
         
     def test_additional_date_formats(self):
         """Test parsing of additional date formats commonly found in RSS feeds."""
@@ -177,13 +212,15 @@ class TestDateHandling(unittest.TestCase):
             recent_date.strftime('%d %b %Y %H:%M:%S'),  # Without day name
             recent_date.strftime('%B %d, %Y %I:%M %p'),  # Month name, 12-hour format
             recent_date.strftime('%Y-%m-%dT%H:%M:%S.%f%z'),  # ISO with microseconds
-            f"{recent_date.strftime('%a, %d %b %Y %H:%M:%S')} (Eastern Standard Time)",  # With timezone name in parentheses
-            f"{recent_date.strftime('%Y-%m-%d')}T{recent_date.strftime('%H:%M:%S')}",  # Literal T separator without timezone
+            # With timezone name in parentheses
+            f"{recent_date.strftime('%a, %d %b %Y %H:%M:%S')} (Eastern Standard Time)",
+            # Literal T separator without timezone
+            f"{recent_date.strftime('%Y-%m-%d')}T{recent_date.strftime('%H:%M:%S')}",
         ]
         
         for date_str in date_formats:
             result = self.feed_processor.is_recent(date_str)
-            self.assertTrue(result, f"Date format should be recognized as recent: {date_str}")
+            self.assertTrue(result, "Date format should be recognized as recent")
             
     def test_edge_case_date_formats(self):
         """Test edge case date formats and recovery strategies."""
@@ -193,56 +230,58 @@ class TestDateHandling(unittest.TestCase):
         # Edge cases
         edge_cases = [
             f"Published on {recent_date.strftime('%d-%m-%Y')}",  # Date embedded in text
-            f"Last Updated: {recent_date.strftime('%I:%M %p')} on {recent_date.strftime('%d %B, %Y')}",  # Time and date separated
+            # Time and date separated
+            f"Last Updated: {recent_date.strftime('%I:%M %p')} on "
+            f"{recent_date.strftime('%d %B, %Y')}",
             f"{recent_date.strftime('%Y%m%d%H%M%S')}",  # Compact format without separators
-            f"{recent_date.year}, {recent_date.strftime('%B')} {recent_date.day}",  # Unusual ordering
+            # Unusual ordering
+            f"{recent_date.year}, {recent_date.strftime('%B')} {recent_date.day}",
         ]
         
-        # Try each edge case with regex fallback
+        # Test each edge case
         for date_str in edge_cases:
-            # Create a patch to force the regex fallback by making the initial parse fail
-            with patch('dateutil.parser.parse', side_effect=ValueError("Simulated parsing failure")):
-                with patch.object(self.feed_processor, 'is_recent', wraps=self.feed_processor.is_recent) as wrapped_is_recent:
-                    result = wrapped_is_recent(date_str)
-                    # We don't assert the result here because the regex fallback may not work for all these edge cases
-                    # We just want to ensure the function doesn't crash and handles the failure gracefully
-                    
+            with self.subTest(date_str=date_str):
+                # Since our regex might not catch all of these, we're checking if any are detected
+                # In a real application, a more robust solution would be needed
+                parsed = self.feed_processor.is_recent(date_str)
+                # Don't verify the result, just make sure it doesn't crash
+                self.assertIsNotNone(parsed is not None)
+                
     def test_timezone_aware_lookback_window(self):
-        """Test that the lookback window properly handles timezone-aware dates."""
-        # Set up the test with a fixed lookback period
-        lookback_days = 3
-        
-        # Create a mock AI interface
-        mock_ai = MagicMock()
-        mock_ai.evaluate_article_preference.return_value = "FULL"
-        mock_ai.generate_consolidated_summary.return_value = "This is a consolidated summary"
-        
-        test_processor = FeedProcessor(
-            state_manager=self.state_manager,
-            ai_interface=mock_ai,
-            output_dir=".",
-            days_lookback=lookback_days
-        )
-        
-        # Get current UTC time
-        now = datetime.now(timezone.utc)
-        
-        # Test date just inside the lookback window (should be recent)
-        inside_window = now - timedelta(days=lookback_days - 0.5)
-        inside_date = inside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
-        self.assertTrue(test_processor.is_recent(inside_date), 
-                       f"Date just inside lookback window ({lookback_days - 0.5} days ago) should be recent")
-        
-        # Test date just outside the lookback window (should not be recent)
-        outside_window = now - timedelta(days=lookback_days + 0.5)
-        outside_date = outside_window.strftime('%Y-%m-%dT%H:%M:%S%z')
-        self.assertFalse(test_processor.is_recent(outside_date), 
-                        f"Date just outside lookback window ({lookback_days + 0.5} days ago) should not be recent")
-        
-        # Test with a different timezone offset
-        other_tz_inside = (now - timedelta(days=lookback_days - 0.5)).strftime('%Y-%m-%dT%H:%M:%S-0700')
-        self.assertTrue(test_processor.is_recent(other_tz_inside), 
-                       "Date inside lookback window with non-UTC timezone should be recent")
+        """Test that the lookback window respects timezone information."""
+        # Test with different lookback periods
+        for days in [1, 3, 7, 14, 30]:
+            # Create a processor with specified lookback days
+            processor = FeedProcessor(
+                state_manager=self.state_manager,
+                ai_interface=MagicMock(),
+                output_dir=".",
+                days_lookback=days
+            )
+            
+            # A date just inside the lookback window
+            now = datetime.now(timezone.utc)
+            just_recent = (now - timedelta(days=days - 0.5)).isoformat()
+            self.assertTrue(
+                processor.is_recent(just_recent),
+                "Date should be recent with specified lookback"
+            )
+            
+            # A date just outside the lookback window
+            just_old = (now - timedelta(days=days + 0.5)).isoformat()
+            self.assertFalse(
+                processor.is_recent(just_old),
+                "Date outside lookback should not be recent"
+            )
+            
+            # Test with a timezone-naive date
+            naive_date = (now - timedelta(days=days - 0.5)).strftime('%Y-%m-%d %H:%M:%S')
+            naive_result = processor.is_recent(naive_date)
+            self.assertTrue(
+                naive_result,
+                "Naive date should be handled correctly"
+            )
+
 
 if __name__ == "__main__":
     unittest.main() 

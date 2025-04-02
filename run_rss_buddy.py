@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""
-Command-line runner for RSS Buddy.
-"""
+"""Command-line runner for RSS Buddy."""
+import argparse
 import os
 import sys
-import argparse
+
 from dotenv import load_dotenv
+
+from rss_buddy.main import main as rss_buddy_main
 
 # Add the src directory to the path so we can import our package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
 
-from rss_buddy.main import main as rss_buddy_main
 
 def parse_args():
     """Parse command-line arguments."""
@@ -68,6 +68,7 @@ def parse_args():
     
     return parser.parse_args()
 
+
 def main():
     """Parse arguments and run RSS Buddy."""
     # Load environment variables from .env file if it exists
@@ -99,5 +100,6 @@ def main():
     
     return exit_code
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

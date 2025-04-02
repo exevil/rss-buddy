@@ -1,12 +1,14 @@
 """Unit tests for the AI interface component."""
 import os
-import unittest
-from unittest.mock import patch, MagicMock
-
 import sys
+import unittest
+from unittest.mock import MagicMock, patch
+
+# Add path to allow importing package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from rss_buddy.ai_interface import AIInterface, MockAIInterface
+
 
 class TestAIInterface(unittest.TestCase):
     """Test the AIInterface class with mocks to avoid real API calls."""
@@ -193,6 +195,7 @@ class TestAIInterface(unittest.TestCase):
         # On error, should return None
         self.assertIsNone(result)
 
+
 class TestMockAIInterface(unittest.TestCase):
     """Test the MockAIInterface class."""
     
@@ -327,6 +330,7 @@ class TestMockAIInterface(unittest.TestCase):
         
         # Should return None for empty articles
         self.assertIsNone(result)
+
 
 if __name__ == "__main__":
     unittest.main() 

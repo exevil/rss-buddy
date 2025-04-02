@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import os
-import json
-import hashlib
+"""Module for managing state of processed feed entries and tracking digest articles."""
 from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import os
+
 from dateutil import parser
+
 
 class StateManager:
     """Manages the state of processed articles to avoid reprocessing."""
@@ -48,8 +51,8 @@ class StateManager:
                                 }
                     
                     return state
-            except Exception as e:
-                print(f"Error loading state file: {e}")
+            except Exception:
+                print(f"Error loading state file: {self.state_file}")
                 return self._create_new_state()
         else:
             return self._create_new_state()
@@ -110,7 +113,8 @@ class StateManager:
         # Get entry data to check date
         entry_data = feed_state.get("entry_data", {}).get(entry_id)
         if not entry_data or "date" not in entry_data:
-            return True  # If we can't determine date, consider it processed
+            # If date is missing, cannot determine recency, so return False
+            return False
             
         try:
             # Common problematic timezone abbreviations and their approximate UTC offsets
@@ -125,14 +129,17 @@ class StateManager:
                 return timezone_replacements.get(tzname, None)
             
             entry_date = parser.parse(entry_data["date"], tzinfos=tzinfos)
+            
+            # Ensure the date is timezone-aware, defaulting to UTC
             if entry_date.tzinfo is None:
                 entry_date = entry_date.replace(tzinfo=timezone.utc)
                 
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_lookback)
             return entry_date >= cutoff_date
-        except Exception as e:
+        except Exception:
             print(f"Failed to parse date for entry {entry_id} in feed {feed_url}")
-            return True  # If we can't parse the date, consider it processed
+            # If date is unparseable, cannot determine recency, so return False
+            return False
     
     def get_entry_data(self, feed_url, entry_id):
         """Get stored data for a processed entry.
@@ -174,16 +181,26 @@ class StateManager:
             self.state["feeds"][feed_url]["processed_ids"].append(entry_id)
         
         # Update last entry date if newer
-        if entry_date:
-            current_date = self.state["feeds"][feed_url]["last_entry_date"]
-            if not current_date or entry_date > current_date:
-                self.state["feeds"][feed_url]["last_entry_date"] = entry_date
+        current_last_date = self.state["feeds"][feed_url]["last_entry_date"]
+        if self._is_newer_date(entry_date, current_last_date):
+            self.state["feeds"][feed_url]["last_entry_date"] = entry_date
         
-        # Store additional entry data if provided
-        if entry_data:
-            if "entry_data" not in self.state["feeds"][feed_url]:
-                self.state["feeds"][feed_url]["entry_data"] = {}
-            self.state["feeds"][feed_url]["entry_data"][entry_id] = entry_data
+        # Ensure entry_data structure exists
+        if "entry_data" not in self.state["feeds"][feed_url]:
+            self.state["feeds"][feed_url]["entry_data"] = {}
+        
+        # Ensure the entry_id key exists in entry_data before updating
+        if entry_id not in self.state["feeds"][feed_url]["entry_data"]:
+            self.state["feeds"][feed_url]["entry_data"][entry_id] = {}
+        
+        # Store or update entry data
+        if entry_data:  # Merge provided data if any
+            self.state["feeds"][feed_url]["entry_data"][entry_id].update(entry_data)
+        
+        # Always store/update the date if provided
+        if entry_date:
+            # Now it's safe to add the date
+            self.state["feeds"][feed_url]["entry_data"][entry_id]["date"] = entry_date
         
         # Limit the number of stored IDs to prevent unlimited growth
         max_ids = 1000  # Store at most 1000 IDs per feed
@@ -197,6 +214,26 @@ class StateManager:
                     k: v for k, v in self.state["feeds"][feed_url]["entry_data"].items()
                     if k in recent_ids
                 }
+    
+    def _is_newer_date(self, new_date_str, current_date_str):
+        """Safely compare two date strings, returning True if new_date_str is newer."""
+        if not current_date_str:
+            return True  # No current date, so new date is newer
+        if not new_date_str:
+            return False  # No new date, cannot be newer
+        
+        try:
+            current_dt = parser.parse(current_date_str)
+            new_dt = parser.parse(new_date_str)
+            # Ensure timezone awareness for comparison
+            if current_dt.tzinfo is None:
+                current_dt = current_dt.replace(tzinfo=timezone.utc)
+            if new_dt.tzinfo is None:
+                new_dt = new_dt.replace(tzinfo=timezone.utc)
+            return new_dt > current_dt
+        except Exception:
+            # Fallback to string comparison if parsing fails
+            return new_date_str > current_date_str
     
     def get_last_entry_date(self, feed_url):
         """Get the date of the last processed entry for the feed."""
@@ -223,8 +260,9 @@ class StateManager:
         is_updated = False
         if feed_state["digest"]["content_hash"] != content_hash:
             is_updated = True
-            # Generate a new digest ID if content changed - use microseconds for more uniqueness in tests
-            feed_state["digest"]["id"] = f"digest-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+            # Generate a new digest ID - use microseconds for more uniqueness in tests
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            feed_state["digest"]["id"] = f"digest-{timestamp}"
             feed_state["digest"]["content_hash"] = content_hash
             feed_state["digest"]["article_ids"] = article_ids
             feed_state["digest"]["last_updated"] = datetime.now().isoformat()

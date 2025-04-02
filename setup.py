@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""
-Setup script for RSS Buddy.
-"""
-from setuptools import setup, find_packages
+"""Setup script for RSS Buddy."""
+from setuptools import find_packages, setup
 
 # Read version from package
 with open("src/rss_buddy/__init__.py", "r") as f:

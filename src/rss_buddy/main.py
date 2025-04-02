@@ -3,11 +3,13 @@
 import os
 import sys
 from typing import List
+
 from dotenv import load_dotenv
 
-from .state_manager import StateManager
 from .ai_interface import AIInterface
 from .feed_processor import FeedProcessor
+from .state_manager import StateManager
+
 
 def get_env_list(var_name: str) -> List[str]:
     """Get a list from environment variable, separated by newlines or commas."""
@@ -30,6 +32,7 @@ def get_env_list(var_name: str) -> List[str]:
     
     return result
 
+
 def get_env_int(var_name: str) -> int:
     """Get an integer from environment variable."""
     value = os.environ.get(var_name)
@@ -42,6 +45,7 @@ def get_env_int(var_name: str) -> int:
         print(f"Error: Could not parse {var_name} as integer. Please provide a valid number.")
         sys.exit(1)
 
+
 def get_env_str(var_name: str) -> str:
     """Get a string from environment variable."""
     value = os.environ.get(var_name)
@@ -49,6 +53,7 @@ def get_env_str(var_name: str) -> str:
         print(f"Error: {var_name} environment variable not found.")
         sys.exit(1)
     return value
+
 
 def main():
     """Execute the RSS Buddy process based on environment configuration."""
@@ -88,5 +93,6 @@ def main():
     
     return 0
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

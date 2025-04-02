@@ -19,10 +19,20 @@ exclude =
 ignore =
     # Line break before binary operator (W503)
     W503,
-    # Missing docstring in __init__ (D107)
-    D107,
     # One-line docstring should fit on one line with quotes (D200)
-    D200
+    D200,
+    # Don't check trailing whitespace
+    E303,
+    # Don't check blank lines for whitespace
+    W291,
+    # Don't check blank lines for indentation
+    E111,
+    # Ignore blank line contains whitespace (W293)
+    W293,
+    # No newline at end of file (W292)
+    W292,
+    # Module import not at top of file (E402)
+    E402
 
 # Docstring style
 docstring-convention = google
