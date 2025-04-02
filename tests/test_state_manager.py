@@ -221,6 +221,59 @@ class TestStateManager(unittest.TestCase):
         self.assertNotIn("e3", item_ids)
         self.assertIn("e4", item_ids)  # Items with no date are kept
 
+    # --- Test State File Loading Error Handling ---
+
+    def test_load_state_invalid_json(self):
+        """Test loading a state file with invalid JSON content."""
+        # Write invalid JSON to the state file
+        with open(self.state_file, "w") as f:
+            f.write("this is not json{")
+
+        # Initializing StateManager should handle the error gracefully
+        # and start with a default empty state.
+        state_manager = StateManager(output_dir=self.output_dir)
+
+        # Check that the state is the default empty state
+        self.assertTrue(hasattr(state_manager, "state"))
+        self.assertIsInstance(state_manager.state, dict)
+        self.assertEqual(state_manager.state.get("feeds"), {})
+        self.assertIn("last_updated", state_manager.state)
+
+    def test_load_state_missing_feeds_key(self):
+        """Test loading a state file that is valid JSON but missing the 'feeds' key."""
+        # Write state file without the 'feeds' key
+        invalid_state = {"last_updated": datetime.now(timezone.utc).isoformat()}
+        with open(self.state_file, "w") as f:
+            json.dump(invalid_state, f)
+
+        # Initializing StateManager should handle the error and default
+        state_manager = StateManager(output_dir=self.output_dir)
+
+        # Check state defaults correctly
+        self.assertTrue(hasattr(state_manager, "state"))
+        self.assertIsInstance(state_manager.state, dict)
+        self.assertEqual(state_manager.state.get("feeds"), {})
+        self.assertIn("last_updated", state_manager.state)
+
+    def test_load_state_wrong_feeds_type(self):
+        """Test loading a state file where 'feeds' key has the wrong type."""
+        # Write state file with 'feeds' as a list instead of dict
+        invalid_state = {
+            "feeds": ["not a dict"],
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }
+        with open(self.state_file, "w") as f:
+            json.dump(invalid_state, f)
+
+        # Initializing StateManager should handle the error and default
+        state_manager = StateManager(output_dir=self.output_dir)
+
+        # Check state defaults correctly
+        self.assertTrue(hasattr(state_manager, "state"))
+        self.assertIsInstance(state_manager.state, dict)
+        self.assertEqual(state_manager.state.get("feeds"), {})
+        self.assertIn("last_updated", state_manager.state)
+
 
 if __name__ == "__main__":
     unittest.main()
