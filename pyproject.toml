@@ -1,3 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rss-buddy"
+dynamic = ["version"]
+description = "AI-powered RSS feed processor"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT License" } # Assuming MIT based on classifier
+authors = [
+  { name = "RSS Buddy Team", email = "example@example.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary",
+]
+dependencies = [
+    "feedparser>=6.0.0",
+    "python-dateutil>=2.8.2",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+rss-buddy = "rss_buddy.main:main"
+
+[project.urls] # Optional, but good practice
+Homepage = "https://github.com/example/rss-buddy"
+Repository = "https://github.com/example/rss-buddy"
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    # Add other dev tools like pytest, black, mypy here if needed
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "rss_buddy.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"] # Corresponds to package_dir = {\"\": \"src\"}
+
 [tool.ruff]
 line-length = 100
 

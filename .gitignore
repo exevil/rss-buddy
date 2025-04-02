@@ -16,6 +16,9 @@ venv/
 processed_feeds/
 docs/
 
+# Build artifacts
+*.egg-info/
+
 # macOS
 .DS_Store 
 /test_html
