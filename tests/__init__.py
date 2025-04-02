@@ -1,1 +1,1 @@
-"""Test suite for RSS Buddy.""" 
+"""Test suite for RSS Buddy."""

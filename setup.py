@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Setup script for RSS Buddy."""
+
 from setuptools import find_packages, setup
 
 # Read version from package
@@ -48,4 +49,4 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary",
     ],
-) 
+)

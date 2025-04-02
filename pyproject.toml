@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Enable Pyflakes, pycodestyle, isort, pep8-naming, flake8-bugbear, flake8-comprehensions, flake8-docstrings rules
+select = ["F", "E", "W", "I", "N", "B", "C4", "D"]
+
+# Keep some rules ignored for flexibility, similar to previous setup
+ignore = [
+    "E501",  # Line too long, handled by formatter
+    "D200",  # One-line docstring should fit on one line
+    "E303",  # Too many blank lines (allows flexibility)
+    "E402",  # Module import not at top of file (allows flexibility)
+    "B007",  # Loop variable not used (fixed manually earlier, but good to keep explicit if needed)
+]
+
+# Define maximum complexity
+mccabe = { max-complexity = 12 }
+
+# Configure docstring conventions
+pydocstyle = { convention = "google" }
+
+[tool.ruff.format]
+# Use defaults, which are similar to Black 

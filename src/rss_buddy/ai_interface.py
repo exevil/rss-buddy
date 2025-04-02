@@ -1,4 +1,5 @@
 """Interface for AI operations, making them easier to test and mock."""
+
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -33,11 +34,7 @@ class AIInterface:
         return OpenAI(api_key=self.api_key)
 
     def evaluate_article_preference(
-        self,
-        title: str,
-        summary: str,
-        criteria: str,
-        feed_url: Optional[str] = None
+        self, title: str, summary: str, criteria: str, feed_url: Optional[str] = None
     ) -> str:
         """Evaluate if an article should be shown in full or summarized.
 
@@ -55,6 +52,7 @@ class AIInterface:
             feed_source = ""
             if feed_url:
                 from urllib.parse import urlparse
+
                 parsed_url = urlparse(feed_url)
                 domain = parsed_url.netloc
                 feed_source = f"\nSource: {domain}"
@@ -76,9 +74,9 @@ class AIInterface:
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content}
+                    {"role": "user", "content": user_content},
                 ],
-                max_tokens=10
+                max_tokens=10,
             )
             preference = response.choices[0].message.content.strip().upper()
             return "FULL" if preference == "FULL" else "SUMMARY"
@@ -87,9 +85,7 @@ class AIInterface:
             return "SUMMARY"  # Default to summary on error
 
     def generate_consolidated_summary(
-        self,
-        articles: List[Dict[str, Any]],
-        max_tokens: int = 150
+        self, articles: List[Dict[str, Any]], max_tokens: int = 150
     ) -> Optional[str]:
         """Generate a consolidated summary for multiple articles.
 
@@ -132,9 +128,9 @@ class AIInterface:
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_content},
-                    {"role": "user", "content": user_content}
+                    {"role": "user", "content": user_content},
                 ],
-                max_tokens=max_tokens * len(articles)
+                max_tokens=max_tokens * len(articles),
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -145,10 +141,12 @@ class AIInterface:
 class MockAIInterface(AIInterface):
     """Mock implementation of the AI interface for testing."""
 
-    def __init__(self,
-                 evaluation_responses: Dict[Tuple[str, str], str] = None,
-                 summary_responses: Dict[str, str] = None,
-                 model: str = "mock-model"):
+    def __init__(
+        self,
+        evaluation_responses: Dict[Tuple[str, str], str] = None,
+        summary_responses: Dict[str, str] = None,
+        model: str = "mock-model",
+    ):
         """Initialize the mock AI interface with predefined responses.
 
         Args:
@@ -168,11 +166,7 @@ class MockAIInterface(AIInterface):
         return None
 
     def evaluate_article_preference(
-        self,
-        title: str,
-        summary: str,
-        criteria: str,
-        feed_url: Optional[str] = None
+        self, title: str, summary: str, criteria: str, feed_url: Optional[str] = None
     ) -> str:
         """Return a predefined response based on the title and summary."""
         # Try to find an exact match
@@ -181,7 +175,7 @@ class MockAIInterface(AIInterface):
             return self.evaluation_responses[key]
 
         # Try to find a match just based on title
-        for (t, s), response in self.evaluation_responses.items():
+        for (t, _s), response in self.evaluation_responses.items():
             if t == title:
                 return response
 
@@ -191,16 +185,14 @@ class MockAIInterface(AIInterface):
         return "SUMMARY"
 
     def generate_consolidated_summary(
-        self,
-        articles: List[Dict[str, Any]],
-        max_tokens: int = 150
+        self, articles: List[Dict[str, Any]], max_tokens: int = 150
     ) -> Optional[str]:
         """Return a predefined summary or a generated one for testing."""
         if not articles:
             return None
 
         # Create a key from article titles
-        key = "+".join(sorted([a['title'] for a in articles]))
+        key = "+".join(sorted([a["title"] for a in articles]))
 
         # Return predefined response if available
         if key in self.summary_responses:

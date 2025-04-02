@@ -1,15 +1,16 @@
 """Core RSS feed processing functionality."""
+
 import datetime
-from datetime import timedelta, timezone
-from email.utils import formatdate
 import hashlib
 import os
 import re
+import xml.etree.ElementTree as ElementTree
+from datetime import timedelta, timezone
+from email.utils import formatdate
 from typing import Any, Dict, List, Optional, Union
-import xml.etree.ElementTree as ET
 
-from dateutil import parser
 import feedparser
+from dateutil import parser
 
 from .ai_interface import AIInterface
 from .state_manager import StateManager
@@ -25,7 +26,7 @@ class FeedProcessor:
         output_dir: str = "processed_feeds",
         days_lookback: int = 7,
         user_preference_criteria: str = "",
-        summary_max_tokens: int = 150
+        summary_max_tokens: int = 150,
     ):
         """Initialize the feed processor.
 
@@ -54,17 +55,17 @@ class FeedProcessor:
     def generate_entry_id(self, entry: Dict[str, Any]) -> str:
         """Generate a unique ID for an entry based on its link and title."""
         # Use link as primary ID if available
-        entry_id = entry.get('id')
+        entry_id = entry.get("id")
         if entry_id:
             return entry_id
 
-        entry_link = entry.get('link')
+        entry_link = entry.get("link")
         if entry_link:
             return entry_link
         else:
             # Create a hash from title and content if no ID or link
-            content = entry.get('summary', '') + entry.get('title', '')
-            return hashlib.md5(content.encode('utf-8')).hexdigest()
+            content = entry.get("summary", "") + entry.get("title", "")
+            return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     def fetch_rss_feed(self, url: str) -> Optional[feedparser.FeedParserDict]:
         """Fetch and parse an RSS feed from the given URL."""
@@ -105,22 +106,26 @@ class FeedProcessor:
 
     def _parse_date(self, entry_date: str) -> Optional[datetime.datetime]:
         """Parse a date string using multiple fallback methods.
-       
+
         Tries several approaches to parse problematic date formats:
         1. Standard parsing with timezone info
         2. Parsing without timezone info
         3. Special handling for timezone abbreviations
         4. Extracting date and time parts separately
-       
+
         Returns:
             datetime.datetime or None: Parsed date or None if parsing failed
         """
         # Common problematic timezone abbreviations and their approximate UTC offsets
         timezone_replacements = {
-            'PDT': '-0700', 'PST': '-0800',
-            'EDT': '-0400', 'EST': '-0500',
-            'CEST': '+0200', 'CET': '+0100',
-            'AEST': '+1000', 'AEDT': '+1100'
+            "PDT": "-0700",
+            "PST": "-0800",
+            "EDT": "-0400",
+            "EST": "-0500",
+            "CEST": "+0200",
+            "CET": "+0100",
+            "AEST": "+1000",
+            "AEDT": "+1100",
         }
 
         def tzinfos(tzname, offset):
@@ -130,9 +135,7 @@ class FeedProcessor:
         return (
             self._try_standard_parsing(entry_date, tzinfos)
             or self._try_ignoretz_parsing(entry_date)
-            or self._try_timezone_replacement_parsing(
-                entry_date, timezone_replacements, tzinfos
-            )
+            or self._try_timezone_replacement_parsing(entry_date, timezone_replacements, tzinfos)
             or self._try_regex_parsing(entry_date, tzinfos)
         )
 
@@ -184,10 +187,10 @@ class FeedProcessor:
         try:
             # More flexible regex to find date and time patterns within text
             # Date patterns: YYYY-MM-DD (G1), DD/MM/YYYY (G2), DD Mon YYYY (G3)
-            date_pattern = r'(\d{4}-\d{2}-\d{2})|(\d{2}/\d{2}/\d{4})|(\d{2} \w{3} \d{4})'
+            date_pattern = r"(\d{4}-\d{2}-\d{2})|(\d{2}/\d{2}/\d{4})|(\d{2} \w{3} \d{4})"
             # Time pattern: HH:MM:SS (G1)
-            time_pattern = r'(\d{2}:\d{2}:\d{2})'
-            
+            time_pattern = r"(\d{2}:\d{2}:\d{2})"
+
             date_match = re.search(date_pattern, entry_date)
             time_match = re.search(time_pattern, entry_date)
 
@@ -203,7 +206,7 @@ class FeedProcessor:
                 elif date_match.group(3):  # DD Mon YYYY
                     date_str = date_match.group(3)
                     day_first = True  # Explicitly day first
-                
+
                 time_str = time_match.group(1)  # time_pattern only has one group
 
                 if date_str and time_str:
@@ -211,9 +214,7 @@ class FeedProcessor:
                     simple_date = f"{date_str} {time_str}"
                     # Parse simplified date, assume UTC, respect dayfirst if needed
                     parsed_date = parser.parse(
-                        simple_date, 
-                        tzinfos=tzinfos_func, 
-                        dayfirst=day_first
+                        simple_date, tzinfos=tzinfos_func, dayfirst=day_first
                     )
                     return parsed_date.replace(tzinfo=timezone.utc)
             return None
@@ -223,10 +224,7 @@ class FeedProcessor:
             return None
 
     def evaluate_article_preference(
-        self,
-        title: str,
-        summary: str,
-        feed_url: Optional[str] = None
+        self, title: str, summary: str, feed_url: Optional[str] = None
     ) -> str:
         """Evaluate if an article should be shown in full or summarized.
 
@@ -239,16 +237,11 @@ class FeedProcessor:
             str: "FULL" or "SUMMARY" preference
         """
         return self.ai_interface.evaluate_article_preference(
-            title=title,
-            summary=summary,
-            criteria=self.user_preference_criteria,
-            feed_url=feed_url
+            title=title, summary=summary, criteria=self.user_preference_criteria, feed_url=feed_url
         )
 
     def create_consolidated_summary(
-        self,
-        articles: List[Dict[str, Any]],
-        feed_url: str
+        self, articles: List[Dict[str, Any]], feed_url: str
     ) -> Optional[Dict[str, Any]]:
         """Create a consolidated summary of multiple articles.
 
@@ -266,7 +259,7 @@ class FeedProcessor:
         # Helper function to create stable content hash
         def create_stable_content():
             # Get article IDs for state tracking
-            article_list_ids = [article['guid'] for article in articles]
+            article_list_ids = [article["guid"] for article in articles]
             # Sort IDs to ensure consistent hashing regardless of order
             article_list_ids.sort()
 
@@ -274,9 +267,7 @@ class FeedProcessor:
             # Use only article IDs and titles, not timestamps or other changing data
             content = ""
             for article_id in article_list_ids:
-                article_match = next(
-                    (a for a in articles if a['guid'] == article_id), None
-                )
+                article_match = next((a for a in articles if a["guid"] == article_id), None)
                 if article_match:
                     content += f"{article_id}:{article_match['title']}|"
             return article_list_ids, content
@@ -286,8 +277,7 @@ class FeedProcessor:
 
         # Generate the digest content
         digest_content = self.ai_interface.generate_consolidated_summary(
-            articles=articles,
-            max_tokens=self.summary_max_tokens
+            articles=articles, max_tokens=self.summary_max_tokens
         )
 
         if not digest_content:
@@ -296,18 +286,14 @@ class FeedProcessor:
 
         # Update digest state and get ID
         digest_id, is_updated = self.state_manager.update_digest_state(
-            feed_url=feed_url,
-            article_ids=article_ids,
-            content=content_hash_data
+            feed_url=feed_url, article_ids=article_ids, content=content_hash_data
         )
 
         # Update processed state of included articles
         now_iso = datetime.datetime.now().isoformat()
         for article in articles:
             self.state_manager.add_processed_entry(
-                feed_url=feed_url,
-                entry_id=article['guid'],
-                entry_date=now_iso
+                feed_url=feed_url, entry_id=article["guid"], entry_date=now_iso
             )
 
         # Create digest entry
@@ -318,12 +304,12 @@ class FeedProcessor:
         if is_updated:
             print(f"  Content changed, creating new digest ({digest_id})")
             return {
-                'title': digest_title,
-                'link': f"https://digest.example.com/{digest_id}",
-                'guid': digest_id,
-                'pubDate': digest_date,
-                'description': digest_content,
-                'is_digest': True
+                "title": digest_title,
+                "link": f"https://digest.example.com/{digest_id}",
+                "guid": digest_id,
+                "pubDate": digest_date,
+                "description": digest_content,
+                "is_digest": True,
             }
         else:
             print(f"  Content unchanged, using existing digest ID ({digest_id})")
@@ -360,7 +346,7 @@ class FeedProcessor:
 
         for entry in feed.entries:
             # Get entry date
-            entry_date = entry.get('published', entry.get('updated'))
+            entry_date = entry.get("published", entry.get("updated"))
             entry_id = self.generate_entry_id(entry)
 
             # Check if entry is recent
@@ -378,15 +364,13 @@ class FeedProcessor:
             # Store entry data for state tracking
             entry_data = {
                 "date": entry_date,
-                "title": entry.get('title', 'Untitled'),
-                "link": entry.get('link', ''),
-                "summary": entry.get('summary', '')
+                "title": entry.get("title", "Untitled"),
+                "link": entry.get("link", ""),
+                "summary": entry.get("summary", ""),
             }
 
             # Check if entry has been processed within lookback window
-            if self.state_manager.is_entry_processed(
-                feed_url, entry_id, self.days_lookback
-            ):
+            if self.state_manager.is_entry_processed(feed_url, entry_id, self.days_lookback):
                 print(f"  Already processed entry: {entry.get('title', 'Untitled')}")
 
                 # Get the stored entry data if available
@@ -401,9 +385,7 @@ class FeedProcessor:
 
             # Evaluate article preference
             preference = self.evaluate_article_preference(
-                title=entry.get('title', ''),
-                summary=entry.get('summary', ''),
-                feed_url=feed_url
+                title=entry.get("title", ""), summary=entry.get("summary", ""), feed_url=feed_url
             )
 
             # Add preference to the entry data
@@ -411,14 +393,10 @@ class FeedProcessor:
 
             if preference == "FULL":
                 full_articles.append(entry)
-                self.state_manager.add_processed_entry(
-                    feed_url, entry_id, entry_date, entry_data
-                )
+                self.state_manager.add_processed_entry(feed_url, entry_id, entry_date, entry_data)
             else:
                 summary_articles.append(entry)
-                self.state_manager.add_processed_entry(
-                    feed_url, entry_id, entry_date, entry_data
-                )
+                self.state_manager.add_processed_entry(feed_url, entry_id, entry_date, entry_data)
 
         # Create consolidated summary if needed
         digest_entry = None
@@ -430,38 +408,42 @@ class FeedProcessor:
         output_file = os.path.join(self.output_dir, f"{feed.feed.get('title')}.xml")
 
         # Create feed tree
-        feed_tree = ET.Element('rss')
-        feed_tree.set('version', '2.0')
+        feed_tree = ElementTree.Element("rss")
+        feed_tree.set("version", "2.0")
 
-        channel = ET.SubElement(feed_tree, 'channel')
+        channel = ElementTree.SubElement(feed_tree, "channel")
 
         # Add feed metadata
-        ET.SubElement(channel, 'title').text = f"{feed.feed.get('title')} (Filtered)"
-        ET.SubElement(channel, 'link').text = feed_url
-        ET.SubElement(channel, 'description').text = f"Filtered version of {feed.feed.get('title')}"
-        ET.SubElement(channel, 'lastBuildDate').text = formatdate()
+        ElementTree.SubElement(channel, "title").text = f"{feed.feed.get('title')} (Filtered)"
+        ElementTree.SubElement(channel, "link").text = feed_url
+        ElementTree.SubElement(
+            channel, "description"
+        ).text = f"Filtered version of {feed.feed.get('title')}"
+        ElementTree.SubElement(channel, "lastBuildDate").text = formatdate()
 
         # Add full articles
         for entry in full_articles:
-            item = ET.SubElement(channel, 'item')
-            ET.SubElement(item, 'title').text = entry.get('title', '')
-            ET.SubElement(item, 'link').text = entry.get('link', '')
-            ET.SubElement(item, 'description').text = entry.get('summary', '')
-            ET.SubElement(item, 'pubDate').text = entry.get('published', entry.get('updated', ''))
-            ET.SubElement(item, 'guid').text = self.generate_entry_id(entry)
+            item = ElementTree.SubElement(channel, "item")
+            ElementTree.SubElement(item, "title").text = entry.get("title", "")
+            ElementTree.SubElement(item, "link").text = entry.get("link", "")
+            ElementTree.SubElement(item, "description").text = entry.get("summary", "")
+            ElementTree.SubElement(item, "pubDate").text = entry.get(
+                "published", entry.get("updated", "")
+            )
+            ElementTree.SubElement(item, "guid").text = self.generate_entry_id(entry)
 
         # Add digest if available
         if digest_entry:
-            item = ET.SubElement(channel, 'item')
-            ET.SubElement(item, 'title').text = digest_entry.get('title', '')
-            ET.SubElement(item, 'link').text = digest_entry.get('link', '')
-            ET.SubElement(item, 'description').text = digest_entry.get('description', '')
-            ET.SubElement(item, 'pubDate').text = digest_entry.get('pubDate', '')
-            ET.SubElement(item, 'guid').text = digest_entry.get('guid', '')
+            item = ElementTree.SubElement(channel, "item")
+            ElementTree.SubElement(item, "title").text = digest_entry.get("title", "")
+            ElementTree.SubElement(item, "link").text = digest_entry.get("link", "")
+            ElementTree.SubElement(item, "description").text = digest_entry.get("description", "")
+            ElementTree.SubElement(item, "pubDate").text = digest_entry.get("pubDate", "")
+            ElementTree.SubElement(item, "guid").text = digest_entry.get("guid", "")
 
         # Save the feed
-        tree = ET.ElementTree(feed_tree)
-        tree.write(output_file, encoding='utf-8', xml_declaration=True)
+        tree = ElementTree.ElementTree(feed_tree)
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
         print(
             f"  Saved processed feed to {output_file} with "

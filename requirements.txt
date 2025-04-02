@@ -1,7 +1,5 @@
 feedparser>=6.0.0
 python-dateutil>=2.8.2
 openai>=1.0.0
-python-dotenv>=1.0.0 
-flake8>=6.1.0
-flake8-docstrings>=1.7.0
-flake8-import-order>=0.18.2 
+python-dotenv>=1.0.0
+ruff 
