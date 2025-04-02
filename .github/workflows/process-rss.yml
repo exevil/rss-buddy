@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Path to upload (should match where generate_pages creates files)
-          path: 'processed_feeds'
+          path: \'docs\'
       
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages

@@ -1,11 +1,9 @@
 """Unit tests for the state manager component."""
 
-import hashlib
 import json
 import os
 import sys
 import tempfile
-import time
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -47,271 +45,181 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(state_manager.state["feeds"], {})
 
     def test_load_existing_state(self):
-        """Test loading an existing state file."""
-        # Create a state file
-        test_state = {
+        """Test loading an existing state file (including migration)."""
+        # Create an *old* state file structure
+        old_state = {
             "feeds": {
                 "https://example.com/feed.xml": {
-                    "processed_ids": ["1", "2", "3"],
-                    "last_entry_date": "2023-01-01T12:00:00",
+                    "processed_ids": ["old_id_1", "old_id_2"],
+                    "last_entry_date": "2023-01-01T12:00:00Z",
+                    "entry_data": {
+                        "old_id_1": {
+                            "date": "2023-01-01T11:00:00Z",
+                            "title": "Old Title 1",
+                            "link": "link1",
+                            "summary": "summary1",
+                        }
+                    },
                     "digest": {
-                        "id": "digest-20230101120000",
-                        "content_hash": "abcdef123456",
-                        "article_ids": ["1", "2"],
-                        "last_updated": "2023-01-01T12:00:00",
+                        "id": "digest-old",
+                        "content_hash": "oldhash",
+                        "article_ids": ["old_id_2"],
+                        "last_updated": "2023-01-01T11:50:00Z",
                     },
                 }
             },
-            "last_updated": "2023-01-01T12:00:00",
+            "last_updated": "2023-01-01T12:00:00Z",
         }
 
         with open(self.state_file, "w") as f:
-            json.dump(test_state, f)
+            json.dump(old_state, f)
 
-        # Load the state
+        # Load the state - this should trigger migration
         state_manager = StateManager(output_dir=self.output_dir)
 
-        # Check that the state was loaded correctly
-        self.assertEqual(
-            state_manager.state["feeds"]["https://example.com/feed.xml"]["processed_ids"],
-            ["1", "2", "3"],
+        # Check that the state was migrated to the new structure
+        self.assertNotIn(
+            "processed_ids", state_manager.state["feeds"]["https://example.com/feed.xml"]
         )
+        self.assertNotIn("digest", state_manager.state["feeds"]["https://example.com/feed.xml"])
+        self.assertIn("entry_data", state_manager.state["feeds"]["https://example.com/feed.xml"])
 
-    def test_is_entry_processed(self):
-        """Test checking if an entry has been processed."""
+        # Check migrated entries
+        migrated_entry_data = state_manager.state["feeds"]["https://example.com/feed.xml"][
+            "entry_data"
+        ]
+        self.assertIn("old_id_1", migrated_entry_data)
+        self.assertEqual(
+            migrated_entry_data["old_id_1"]["status"], "processed"
+        )  # Migrated entries assumed processed
+        self.assertEqual(migrated_entry_data["old_id_1"]["title"], "Old Title 1")
+        self.assertIn("old_id_2", migrated_entry_data)  # From processed_ids
+        self.assertEqual(migrated_entry_data["old_id_2"]["status"], "processed")
+        self.assertIsNone(migrated_entry_data["old_id_2"]["title"])  # No details available
+
+    def test_get_entry_status(self):
+        """Test checking an entry's status."""
         feed_url = "https://example.com/feed.xml"
         entry_id = "test_entry_1"
+        entry_data = {"id": entry_id, "date": "2024-01-01T12:00:00Z", "title": "Test"}
 
-        # Create a state manager with empty state
         state_manager = StateManager(output_dir=self.output_dir)
 
-        # Entry should not be processed yet
-        self.assertFalse(state_manager.is_entry_processed(feed_url, entry_id))
+        # Status should be None initially
+        self.assertIsNone(state_manager.get_entry_status(feed_url, entry_id))
 
-        # Add the entry to processed list
-        state_manager.add_processed_entry(feed_url, entry_id)
+        # Add the entry with 'processed' status
+        state_manager.add_processed_entry(feed_url, entry_id, "processed", entry_data)
+        self.assertEqual(state_manager.get_entry_status(feed_url, entry_id), "processed")
 
-        # Entry should be processed now
-        self.assertTrue(state_manager.is_entry_processed(feed_url, entry_id))
+        # Add/update the entry with 'digest' status
+        state_manager.add_processed_entry(feed_url, entry_id, "digest", entry_data)
+        self.assertEqual(state_manager.get_entry_status(feed_url, entry_id), "digest")
 
     def test_add_processed_entry(self):
-        """Test adding an entry to the processed list."""
+        """Test adding an entry with status and data."""
         feed_url = "https://example.com/feed.xml"
         entry_id = "test_entry_1"
-        entry_date = "2023-01-01T12:00:00"
+        entry_data = {
+            "id": entry_id,
+            "date": "2024-01-01T12:00:00Z",
+            "title": "Test Title",
+            "link": "http://link",
+            "summary": "Test Summary",
+        }
+        status = "processed"
 
-        # Create a state manager with empty state
         state_manager = StateManager(output_dir=self.output_dir)
+        state_manager.add_processed_entry(feed_url, entry_id, status, entry_data)
 
-        # Add the entry to processed list
-        state_manager.add_processed_entry(feed_url, entry_id, entry_date)
+        # Check that the entry was added correctly
+        feed_state = state_manager.state["feeds"][feed_url]
+        self.assertIn(entry_id, feed_state["entry_data"])
+        stored_data = feed_state["entry_data"][entry_id]
+        self.assertEqual(stored_data["status"], status)
+        self.assertEqual(stored_data["title"], entry_data["title"])
+        self.assertEqual(stored_data["date"], entry_data["date"])
+        self.assertIn("processed_at", stored_data)
 
-        # Check that the entry was added
-        feed_state = state_manager.get_processed_entries(feed_url)
-        self.assertIn(entry_id, feed_state["processed_ids"])
-        self.assertEqual(feed_state["last_entry_date"], entry_date)
-
-    def test_update_digest_state_new_content(self):
-        """Test updating digest state with new content."""
+    def test_save_state_with_cleanup(self):
+        """Test saving the state to a file includes cleanup."""
+        state_manager = StateManager(output_dir=self.output_dir)
         feed_url = "https://example.com/feed.xml"
-        article_ids = ["1", "2", "3"]
-        content = "test content"
-
-        # Create a state manager with empty state
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # Update the digest state (first time)
-        digest_id, is_updated = state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=article_ids, content=content
-        )
-
-        # Should create a new digest ID and report as updated
-        self.assertIsNotNone(digest_id)
-        self.assertTrue(is_updated)
-
-        # Check that the digest state was updated
-        feed_state = state_manager.get_processed_entries(feed_url)
-        self.assertEqual(feed_state["digest"]["article_ids"], article_ids)
-        hash_value = hashlib.md5(content.encode("utf-8")).hexdigest()
-        self.assertEqual(feed_state["digest"]["content_hash"], hash_value)
-
-    def test_update_digest_state_unchanged_content(self):
-        """Test updating digest state with unchanged content."""
-        feed_url = "https://example.com/feed.xml"
-        article_ids = ["1", "2", "3"]
-        content = "test content"
-
-        # Create a state manager with empty state
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # First update
-        digest_id1, is_updated1 = state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=article_ids, content=content
-        )
-
-        # Second update with same content
-        digest_id2, is_updated2 = state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=article_ids, content=content
-        )
-
-        # IDs should match and second update should report as not updated
-        self.assertEqual(digest_id1, digest_id2)
-        self.assertTrue(is_updated1)
-        self.assertFalse(is_updated2)
-
-    def test_update_digest_state_changed_content(self):
-        """Test updating digest state with changed content."""
-        feed_url = "https://example.com/feed.xml"
-        article_ids1 = ["1", "2", "3"]
-        article_ids2 = ["1", "2", "3", "4"]
-        content1 = "test content 1"
-        content2 = "test content 2"
-
-        # Create a state manager with empty state
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # First update
-        digest_id1, is_updated1 = state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=article_ids1, content=content1
-        )
-
-        # Sleep a bit to ensure different timestamps
-        time.sleep(0.01)
-
-        # Second update with different content
-        digest_id2, is_updated2 = state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=article_ids2, content=content2
-        )
-
-        # IDs should be different and both updates should report as updated
-        self.assertNotEqual(digest_id1, digest_id2)
-        self.assertTrue(is_updated1)
-        self.assertTrue(is_updated2)
-
-    def test_get_recent_cutoff_date(self):
-        """Test getting the cutoff date for recent entries."""
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # Set days lookback
         days_lookback = 7
 
-        # Get cutoff date
-        cutoff_date = state_manager.get_recent_cutoff_date(days_lookback)
-
-        # Check that the cutoff date is approximately correct (within 1 minute)
-        expected_cutoff = datetime.now(timezone.utc) - timedelta(days=days_lookback)
-        diff = abs((cutoff_date - expected_cutoff).total_seconds())
-        self.assertLess(diff, 60)  # Within 60 seconds
-
-    def test_get_articles_in_digest(self):
-        """Test retrieving articles that are part of a digest."""
-        feed_url = "https://example.com/feed.xml"
-
-        # Create test articles
-        test_articles = {
-            "article1": {
-                "id": "article1",
-                "title": "Test Article 1",
-                "link": "https://example.com/article1",
-                "date": "2023-01-01T12:00:00",
-                "display_mode": "SUMMARY",
-            },
-            "article2": {
-                "id": "article2",
-                "title": "Test Article 2",
-                "link": "https://example.com/article2",
-                "date": "2023-01-01T13:00:00",
-                "display_mode": "FULL",
-            },
+        now = datetime.now(timezone.utc)
+        recent_entry_id = "recent_entry"
+        recent_entry_data = {"id": recent_entry_id, "date": now.isoformat(), "title": "Recent"}
+        old_entry_id = "old_entry"
+        old_entry_data = {
+            "id": old_entry_id,
+            "date": (now - timedelta(days=14)).isoformat(),
+            "title": "Old",
         }
 
-        # Set up a digest with these articles
-        state_manager = StateManager(output_dir=self.output_dir)
-        for article_id, article_data in test_articles.items():
-            state_manager.add_processed_entry(
-                feed_url=feed_url,
-                entry_id=article_id,
-                entry_date=article_data["date"],
-                entry_data=article_data,
-            )
+        # Add entries
+        state_manager.add_processed_entry(feed_url, recent_entry_id, "processed", recent_entry_data)
+        state_manager.add_processed_entry(feed_url, old_entry_id, "digest", old_entry_data)
 
-        state_manager.update_digest_state(
-            feed_url=feed_url, article_ids=list(test_articles.keys()), content="test digest content"
-        )
+        # Save the state with cleanup enabled
+        state_manager.save_state(days_lookback=days_lookback)
 
-        # Get articles in the digest
-        digest_article_ids = state_manager.get_articles_in_digest(feed_url)
-
-        # Check that the articles were retrieved correctly
-        self.assertIsInstance(digest_article_ids, list)
-        self.assertEqual(len(digest_article_ids), 2)
-
-        # Verify the correct IDs are present
-        self.assertIn("article1", digest_article_ids)
-        self.assertIn("article2", digest_article_ids)
-
-    def test_save_state(self):
-        """Test saving the state to a file."""
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # Add some test data
-        feed_url = "https://example.com/feed.xml"
-        entry_id = "test_entry_1"
-        entry_date = "2023-01-01T12:00:00"
-        state_manager.add_processed_entry(feed_url, entry_id, entry_date)
-
-        # Save the state
-        state_manager.save_state()
-
-        # Check that the file exists
-        self.assertTrue(os.path.exists(self.state_file))
-
-        # Load the file and check the content
+        # Reload the state from file
         with open(self.state_file, "r") as f:
             saved_state = json.load(f)
 
-        self.assertIn("feeds", saved_state)
-        self.assertIn(feed_url, saved_state["feeds"])
+        # Check that only the recent entry remains
+        feed_entry_data = saved_state["feeds"][feed_url]["entry_data"]
+        self.assertIn(recent_entry_id, feed_entry_data)
+        self.assertNotIn(old_entry_id, feed_entry_data)
 
-    def test_is_entry_processed_with_lookback(self):
-        """Test checking if an entry has been processed with lookback period."""
+    def test_get_items_in_lookback(self):
+        """Test retrieving items within the lookback period."""
         feed_url = "https://example.com/feed.xml"
+        days_lookback = 7
 
-        # Create entries with different dates
         now = datetime.now(timezone.utc)
-        recent_entry_id = "recent_entry"
-        recent_entry_date = now.isoformat()
+        entry1_data = {
+            "id": "e1",
+            "date": now.isoformat(),
+            "title": "Recent 1",
+            "status": "processed",
+        }
+        entry2_data = {
+            "id": "e2",
+            "date": (now - timedelta(days=3)).isoformat(),
+            "title": "Recent 2",
+            "status": "digest",
+        }
+        entry3_data = {
+            "id": "e3",
+            "date": (now - timedelta(days=10)).isoformat(),
+            "title": "Old",
+            "status": "processed",
+        }
+        entry4_data = {
+            "id": "e4",
+            "date": None,
+            "title": "No Date",
+            "status": "processed",
+        }  # No date
 
-        old_entry_id = "old_entry"
-        old_entry_date = (now - timedelta(days=14)).isoformat()
-
-        # Create a state manager and add the entries
         state_manager = StateManager(output_dir=self.output_dir)
-        state_manager.add_processed_entry(feed_url, recent_entry_id, recent_entry_date)
-        state_manager.add_processed_entry(feed_url, old_entry_id, old_entry_date)
+        state_manager.add_processed_entry(feed_url, "e1", "processed", entry1_data)
+        state_manager.add_processed_entry(feed_url, "e2", "digest", entry2_data)
+        state_manager.add_processed_entry(feed_url, "e3", "processed", entry3_data)
+        state_manager.add_processed_entry(feed_url, "e4", "processed", entry4_data)
 
-        # Check with a 7-day lookback
-        # Recent entry should be considered, old entry should not
-        lookback_days = 7
-        self.assertTrue(state_manager.is_entry_processed(feed_url, recent_entry_id, lookback_days))
-        self.assertFalse(state_manager.is_entry_processed(feed_url, old_entry_id, lookback_days))
+        # Get items within lookback
+        items = state_manager.get_items_in_lookback(feed_url, days_lookback)
 
-        # Check with a 30-day lookback (both should be considered)
-        lookback_days = 30
-        self.assertTrue(state_manager.is_entry_processed(feed_url, recent_entry_id, lookback_days))
-        self.assertTrue(state_manager.is_entry_processed(feed_url, old_entry_id, lookback_days))
-
-    def test_get_articles_in_digest_no_digest(self):
-        """Test retrieving articles when no digest exists for the feed."""
-        feed_url = "https://example.com/feed.xml"
-
-        # Create a state manager with empty state
-        state_manager = StateManager(output_dir=self.output_dir)
-
-        # Verify that articles in the digest are correctly identified
-        digest_article_ids = state_manager.get_articles_in_digest(feed_url)
-        self.assertIsInstance(digest_article_ids, list)
-        self.assertEqual(len(digest_article_ids), 0)
+        # Check results (e1, e2, e4 should be included)
+        self.assertEqual(len(items), 3)
+        item_ids = {item["id"] for item in items}
+        self.assertIn("e1", item_ids)
+        self.assertIn("e2", item_ids)
+        self.assertNotIn("e3", item_ids)
+        self.assertIn("e4", item_ids)  # Items with no date are kept
 
 
 if __name__ == "__main__":

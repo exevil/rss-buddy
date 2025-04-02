@@ -4,62 +4,63 @@ Help filtering out and summarizing my RSS feeds.
 
 ## Overview
 
-RSS Buddy processes RSS feeds using OpenAI to determine which articles should be shown in full and which should be consolidated into a single digest, reducing noise while ensuring you don't miss important content.
+RSS Buddy processes RSS feeds using OpenAI to determine which articles should be shown in full (\"processed\") and which should be consolidated into an AI-generated digest (\"digest\"). It then generates an HTML site for browsing the results, reducing noise while ensuring you don\'t miss important content.
 
 ## How It Works
 
-1. **Important articles** are kept as individual items and shown in full
-2. **Less important articles** are consolidated into a single digest item
-3. The AI analyzes each article to determine which category it belongs in
+1.  Fetches articles from configured RSS feeds within a specified lookback period (`DAYS_LOOKBACK`).
+2.  Checks its internal state (`processed_feeds/processed_state.json`) to see if articles have already been processed.
+3.  For **new** articles, it uses an AI model (e.g., GPT-4) and user-defined criteria (`USER_PREFERENCE_CRITERIA`) to classify them as either `processed` or `digest`.
+4.  Stores the classification, title, link, summary, and original publish date for all processed articles within the lookback period in the state file.
+5.  Generates an HTML site (in the `docs/` directory) for browsing:
+    *   An `index.html` page lists all tracked feeds.
+    *   Each feed gets its own HTML page (`feed_*.html`).
+    *   On a feed\'s page, `processed` articles are displayed individually.
+    *   All `digest` articles for that feed within the lookback period are passed to the AI to generate a single, consolidated summary which is displayed in a distinct section.
 
 ## Features
 
-- Processes multiple RSS feeds
-- Tracks already processed articles to avoid duplication
-- Uses OpenAI to identify important articles to show in full
-- Consolidates less important articles into a single digest
-- Creates streamlined feeds readable by any RSS reader
-- Supports automated execution with GitHub Actions
-- Generates GitHub Pages site to browse processed feeds
-- Smart digest handling: only updates digest ID when content changes
-- Configurable lookback window for processing recent articles
-- Robust date parsing with fallback mechanisms for problematic timezone formats
-- Maintains all recent articles in output feeds
+- Processes multiple RSS feeds.
+- Tracks already processed articles and their classification (`processed`/`digest`) to avoid reprocessing and redundant AI calls.
+- Uses OpenAI to classify **new** articles based on user criteria.
+- Consolidates less important articles (`digest`) into a single AI-generated summary per feed.
+- Generates a static HTML website (`docs/` directory) for easy browsing and hosting (e.g., GitHub Pages).
+- Supports automated execution with GitHub Actions.
+- Configurable lookback window (`DAYS_LOOKBACK`) for processing and display.
+- Robust date parsing with multiple fallback mechanisms.
+- Maintains state and cleans up entries older than the lookback period automatically.
 
 ## Configuration
 
 RSS Buddy requires the following environment variables, which can be set in a `.env` file or directly in your shell:
 
-| Environment Variable    | Description                                    |
-|-------------------------|------------------------------------------------|
-| `OPENAI_API_KEY`        | Your OpenAI API key                           |
-| `RSS_FEEDS`             | List of RSS feed URLs (newline or comma-separated) |
-| `USER_PREFERENCE_CRITERIA` | Criteria for determining article preferences |
-| `DAYS_LOOKBACK`         | Number of days to look back for articles       |
-| `AI_MODEL`              | OpenAI model to use                           |
-| `SUMMARY_MAX_TOKENS`    | Maximum token length for summaries            |
-
-Only `OUTPUT_DIR` is optional and defaults to "processed_feeds".
+| Environment Variable       | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| `OPENAI_API_KEY`           | Your OpenAI API key                                        |
+| `RSS_FEEDS`                | List of RSS feed URLs (newline or comma-separated)         |
+| `USER_PREFERENCE_CRITERIA` | Criteria for AI classification (\'FULL\' or \'SUMMARY\')    |
+| `DAYS_LOOKBACK`            | Number of days to look back for processing and display     |
+| `AI_MODEL`                 | OpenAI model to use (e.g., `gpt-4`, `gpt-3.5-turbo`)    |
+| `SUMMARY_MAX_TOKENS`       | Maximum token length for generated digest summaries        |
+| `OUTPUT_DIR`               | **Optional**: Directory to store state (`processed_state.json`). Defaults to `processed_feeds`. |
 
 ### Example Configuration
 
 ```env
-# OpenAI API Key 
+# OpenAI API Key
 OPENAI_API_KEY=your-openai-api-key-here
 
 # RSS Feeds to process (one per line or comma-separated)
-RSS_FEEDS="https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
-https://www.wired.com/feed/rss
-https://feeds.arstechnica.com/arstechnica/index"
+RSS_FEEDS=\"https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml\nhttps://www.wired.com/feed/rss\nhttps://feeds.arstechnica.com/arstechnica/index\"
 
-# User preference criteria
-USER_PREFERENCE_CRITERIA="When determining if an article should be shown in full or summarized, consider these factors:
+# User preference criteria (Instruct AI when to return FULL vs SUMMARY)
+USER_PREFERENCE_CRITERIA=\"When determining if an article should be shown in full or summarized, consider these factors:
 - Technical deep dives in machine learning, AI, and quantum computing should be shown in FULL
 - Breaking news about major tech companies should be shown in FULL
 - General technology news can be SUMMARIZED
 - Scientific breakthroughs should be shown in FULL
 - Political news should be SUMMARIZED unless it relates directly to technology policy
-- Entertainment news should be SUMMARIZED"
+- Entertainment news should be SUMMARIZED\"
 
 # Number of days to look back for articles
 DAYS_LOOKBACK=7
@@ -69,84 +70,98 @@ AI_MODEL=gpt-4
 
 # Maximum token length for summaries
 SUMMARY_MAX_TOKENS=150
+
+# Optional: Directory for state file
+# OUTPUT_DIR=my_rss_state
 ```
 
 ## Usage
 
 ### Installing as a Package
 
-```
+```bash
 pip install -e .
 ```
 
-This will make the `rss-buddy` command available in your environment.
+This makes the `run_rss_buddy.py` script runnable.
 
 ### Command-Line Options
 
-There are two ways to run RSS Buddy:
+There are two main ways to run RSS Buddy:
 
-1. **Using run_rss_buddy.py with explicit parameters:**
+1.  **Using `run_rss_buddy.py` with explicit parameters:**
 
-```
-./run_rss_buddy.py --api-key YOUR_API_KEY --feeds "https://example.com/feed1.xml" \
-                  --days-lookback 7 --model "gpt-4" --max-tokens 150 \
-                  --criteria "Your criteria" [--output-dir DIR] [--generate-pages]
-```
+    ```bash
+    ./run_rss_buddy.py --api-key YOUR_API_KEY --feeds \"URL1,URL2\" \
+                      --days-lookback 7 --model \"gpt-4\" --max-tokens 150 \
+                      --criteria \"Your criteria\" [--output-dir processed_feeds] [--generate-pages]
+    ```
 
-2. **Using the shell script with environment variables:**
+    *   `--output-dir`: Specifies where the `processed_state.json` file is stored (defaults to `processed_feeds`).
+    *   `--generate-pages`: If included, runs the HTML generation step after processing feeds. Reads state from `--output-dir` and writes HTML/JSON to the `docs/` directory.
 
-```
-# First set up your .env file or export variables
-./rss-buddy.sh [YOUR_API_KEY] [--pages]
-```
+2.  **Using the `rss-buddy.sh` convenience script:**
 
-Note: When using the shell script, all other required parameters must be provided via environment variables or a `.env` file.
+    ```bash
+    # First set up your .env file or export required environment variables
+    ./rss-buddy.sh [--pages]
+    ```
+
+    *   This script reads parameters from environment variables (falling back from command-line args if provided). See script for details.
+    *   `--pages`: Runs the main processing script and then triggers HTML generation (to `docs/`).
 
 ## Output Format
 
-The processed feeds contain two types of items:
+When run with the `--generate-pages` flag (or `./rss-buddy.sh --pages`), the script generates a static HTML website in the `docs/` directory, suitable for deployment (e.g., via GitHub Pages).
 
-1. **Full Articles**: Important articles as individual items
-2. **Digest Item**: A single item summarizing all less important articles
+The `docs/` directory contains:
 
-The digest is organized by themes to quickly scan what happened without reading every article.
+1.  **`index.html`**: The main entry point, listing all processed feeds with links to their individual pages.
+2.  **`feed_*.html`**: An individual HTML page for each processed RSS feed. Each page contains:
+    *   Articles classified as `processed` displayed individually (title, link, summary, publish date).
+    *   A single `AI Digest` section containing an AI-generated summary of all articles classified as `digest` within the lookback period.
+3.  **`feeds.json`**: A JSON file containing metadata about each generated feed page (title, original URL, HTML filename, counts).
+4.  **`metadata.json`**: A JSON file with metadata about the generation process (timestamp, counts).
+5.  **`processed_state.json`**: A copy of the state file used for the generation.
 
 ## Advanced Features
 
 ### Robust Date Handling
 
-- Multiple fallback mechanisms for various date formats
-- Timezone-aware comparisons
-- Regex-based extraction for non-standard formats
-- Complete mapping for timezone abbreviations (PDT, EST, CEST, etc.)
+- Multiple fallback mechanisms for various date formats (standard parsing, timezone normalization, `ignoretz`, fuzzy matching, regex extraction).
+- Timezone-aware comparisons (all dates converted to UTC internally).
+- Handles common timezone abbreviations (PDT, EST, CEST, etc.).
 
-### Smart Article Processing
+### Smart State Management & Processing
 
-1. Uses AI only for newly discovered articles
-2. Preserves previous article categorizations
-3. Includes all recent articles within the lookback window
+- Uses AI only for newly discovered articles within the lookback window.
+- Persists article classification (`processed` / `digest`) in the state file (`processed_feeds/processed_state.json` by default).
+- Automatically cleans up entries older than `DAYS_LOOKBACK` from the state file on save.
+- Ensures the final HTML output reflects all relevant articles (processed and digest) within the `DAYS_LOOKBACK` period from the run date.
 
-This optimizes AI usage while maintaining a comprehensive feed.
+This optimizes AI usage while maintaining a comprehensive and up-to-date view of relevant content.
 
 ## Development
 
 ### Project Structure
 
 - `src/rss_buddy/` - Main package
-  - `main.py`: Entry point
-  - `feed_processor.py`: Core feed processing logic
-  - `state_manager.py`: State tracking 
-  - `ai_interface.py`: AI operations interface
-  - `generate_pages.py`: HTML page generation
-- `run_rss_buddy.py`: Command-line runner
-- `run_tests.py`: Test runner
-- `rss-buddy.sh`: Convenience shell script
-- `lint.py`: Linting script
+  - `main.py`: Orchestrates the processing workflow.
+  - `feed_processor.py`: Fetches feeds, classifies new items, updates state.
+  - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`).
+  - `ai_interface.py`: Handles interactions with the OpenAI API.
+  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state.
+- `processed_feeds/` - Default directory for storing `processed_state.json`.
+- `docs/` - Default output directory for the generated HTML site.
+- `run_rss_buddy.py`: Command-line runner script.
+- `run_tests.py`: Test suite runner.
+- `rss-buddy.sh`: Convenience shell script for execution.
+- `lint.py`: Linting script.
 
 ### Running Tests
 
-```
-./run_tests.py [-v] [--skip-lint] [--lint-only] [--lint-paths PATH1 PATH2...]
+```bash
+python run_tests.py [-v] [--skip-lint] [--lint-only] [--lint-paths PATH1 PATH2...]
 ```
 
 The test suite covers state management, AI interface, feed processing, and date handling without requiring an actual OpenAI API key.
@@ -155,12 +170,12 @@ By default, running tests will also run the linter. Use the `--skip-lint` option
 
 ### Linting and Formatting
 
-The project uses Ruff for fast linting and code formatting. Ruff combines the functionality of tools like Flake8, isort, Black, and more into a single, high-performance tool.
+The project uses Ruff for fast linting and code formatting.
 
-Linting and formatting are automatically run when executing tests using `run_tests.py`, but you can also run them separately using the `lint.py` script:
+Linting and formatting are automatically run when executing tests using `python run_tests.py`, but you can also run them separately using the `lint.py` script:
 
 ```bash
-./lint.py [--paths PATH1 PATH2...]
+python lint.py [--paths PATH1 PATH2...]
 ```
 
 This script will first format the specified files using `ruff format` and then lint them using `ruff check --fix`.
@@ -168,19 +183,20 @@ This script will first format the specified files using `ruff format` and then l
 Alternatively, you can run only the linter via the test script:
 
 ```bash
-./run_tests.py --lint-only [--lint-paths PATH1 PATH2...]
+python run_tests.py --lint-only [--lint-paths PATH1 PATH2...]
 ```
 
-Ruff settings are configured in the `pyproject.toml` file at the root of the project. You can modify the `[tool.ruff.lint]` and `[tool.ruff.format]` sections to adjust rules, line length, and other behaviors:
+Ruff settings are configured in `pyproject.toml`.
 
-- `line-length`: Maximum allowed line length (default: 100)
-- `select`: List of rule codes/prefixes to enable (e.g., "E", "W", "F", "I", "B")
-- `ignore`: List of specific rule codes to disable
-- `mccabe.max-complexity`: Maximum allowed cyclomatic complexity
-- `pydocstyle.convention`: Style for docstrings (e.g., "google")
-
-The linter/formatter and tests are automatically run on GitHub via CI workflows whenever code is pushed to the main branch or in pull requests.
+The linter/formatter and tests are automatically run on GitHub via CI workflows (`.github/workflows/tests.yml`).
 
 ## GitHub Pages Integration
 
-Processed feeds are saved with filenames based on the original feed titles and can be accessed at `https://yourusername.github.io/rss-buddy/` or used directly as feed URLs in any RSS reader.
+The GitHub Actions workflow (`.github/workflows/process-rss.yml`) is configured to:
+
+1.  Run `./rss-buddy.sh --pages` on a schedule or manually.
+2.  This processes feeds (updating state in `processed_feeds/`) and generates the HTML site (in `docs/`).
+3.  Upload the contents of the `docs/` directory as a GitHub Pages artifact.
+4.  Deploy the artifact to GitHub Pages.
+
+The generated site will be available at `https://<your-username>.github.io/<repository-name>/` (or similar, depending on your Pages setup).
