@@ -80,7 +80,6 @@ def main():
     feed_processor = FeedProcessor(
         state_manager=state_manager,
         ai_interface=ai_interface,
-        output_dir=output_dir,
         days_lookback=days_lookback,
         user_preference_criteria=user_preference_criteria,
         summary_max_tokens=summary_max_tokens,
