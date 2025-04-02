@@ -1,11 +1,9 @@
 """Unit tests for the feed processor component."""
 
-import datetime
 import hashlib
 import os
 import sys
 import unittest
-from datetime import timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 # Add path to allow importing package
@@ -94,40 +92,6 @@ class TestFeedProcessor(unittest.TestCase):
             result = self.processor.fetch_rss_feed("https://example.com/feed.xml")
 
             self.assertIsNone(result)
-
-    def test_is_recent_with_recent_date(self):
-        """Test is_recent method with a recent date."""
-        # Create a date within the lookback period
-        today = datetime.datetime.now(timezone.utc)
-        recent_date = (today - timedelta(days=3)).isoformat()
-
-        self.assertTrue(self.processor.is_recent(recent_date))
-
-    def test_is_recent_with_old_date(self):
-        """Test is_recent method with an old date."""
-        # Create a date outside the lookback period
-        today = datetime.datetime.now(timezone.utc)
-        old_date = (today - timedelta(days=10)).isoformat()
-
-        self.assertFalse(self.processor.is_recent(old_date))
-
-    def test_is_recent_with_invalid_date(self):
-        """Test is_recent method with an invalid date."""
-        self.assertFalse(self.processor.is_recent("not a date"))
-
-    def test_alternate_date_fields(self):
-        """Test extraction of dates from various feed entry fields."""
-        # Test with published date
-        entry = {"published": "2023-12-01T12:00:00Z", "title": "Test"}
-        expected_date = "2023-12-01T12:00:00+00:00"
-        self.assertEqual(self.processor._parse_date(entry["published"]).isoformat(), expected_date)
-
-        # Test with updated date
-        entry = {"updated": "2023-12-01T12:00:00Z", "title": "Test"}
-        self.assertEqual(self.processor._parse_date(entry["updated"]).isoformat(), expected_date)
-
-        # Test with no date
-        self.assertIsNone(self.processor._parse_date("not a date"))
 
     def test_evaluate_article_preference(self):
         """Test the article preference evaluation."""

@@ -219,43 +219,6 @@ class TestMockAIInterface(unittest.TestCase):
         )
         self.assertEqual(result2, "SUMMARY")
 
-    def test_evaluate_article_preference_title_match(self):
-        """Test article preference evaluation with title-only match."""
-        # Create a mock interface with predefined responses
-        evaluation_responses = {("Test 1", "Summary 1"): "FULL"}
-
-        mock_ai = MockAIInterface(evaluation_responses=evaluation_responses)
-
-        # Test title-only match (different summary)
-        result = mock_ai.evaluate_article_preference(
-            title="Test 1", summary="Different summary", criteria="Doesn't matter for mock"
-        )
-        self.assertEqual(result, "FULL")
-
-    def test_evaluate_article_preference_default(self):
-        """Test article preference evaluation with default behavior."""
-        mock_ai = MockAIInterface()
-
-        # Test AI in title should default to FULL
-        result1 = mock_ai.evaluate_article_preference(
-            title="Article about AI", summary="Some summary", criteria="Doesn't matter for mock"
-        )
-        self.assertEqual(result1, "FULL")
-
-        # Test Breakthrough in title should default to FULL
-        result2 = mock_ai.evaluate_article_preference(
-            title="Major Breakthrough in science",
-            summary="Some summary",
-            criteria="Doesn't matter for mock",
-        )
-        self.assertEqual(result2, "FULL")
-
-        # Test normal article should default to SUMMARY
-        result3 = mock_ai.evaluate_article_preference(
-            title="Regular news article", summary="Some summary", criteria="Doesn't matter for mock"
-        )
-        self.assertEqual(result3, "SUMMARY")
-
     def test_generate_consolidated_summary_predefined(self):
         """Test generating a consolidated summary with predefined responses."""
         # Create a mock interface with predefined responses

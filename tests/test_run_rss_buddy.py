@@ -182,5 +182,137 @@ class TestRunRssBuddyScript(unittest.TestCase):
         mock_generate_pages.assert_not_called()
 
 
+# We need to patch sys.argv to test parse_args directly
+class TestArgParsing(unittest.TestCase):
+    """Tests the parse_args function directly."""
+
+    def setUp(self):
+        """Keep track of original sys.argv."""
+        self.original_argv = sys.argv
+
+    def tearDown(self):
+        """Restore original sys.argv."""
+        sys.argv = self.original_argv
+
+    def test_parse_args_all_required_provided(self):
+        """Test parsing when all required arguments are provided."""
+        test_argv = [
+            "run_rss_buddy.py",
+            "--api-key",
+            "test_key",
+            "--feeds",
+            "http://feed1.com,http://feed2.com",
+            "--days-lookback",
+            "7",
+            "--model",
+            "gpt-4-test",
+            "--max-tokens",
+            "150",
+            "--criteria",
+            "Test Criteria",
+            "--output-dir",
+            "custom_output",
+        ]
+        sys.argv = test_argv
+        args = parse_args()
+
+        self.assertEqual(args.api_key, "test_key")
+        self.assertEqual(args.feeds, "http://feed1.com,http://feed2.com")
+        self.assertEqual(args.days_lookback, 7)
+        self.assertEqual(args.model, "gpt-4-test")
+        self.assertEqual(args.max_tokens, 150)
+        self.assertEqual(args.criteria, "Test Criteria")
+        self.assertEqual(args.output_dir, "custom_output")
+        self.assertFalse(args.generate_pages)
+
+    def test_parse_args_defaults(self):
+        """Test default values for optional arguments."""
+        test_argv = [
+            "run_rss_buddy.py",
+            "--api-key",
+            "test_key",
+            "--feeds",
+            "http://feed1.com",
+            "--days-lookback",
+            "3",
+            "--model",
+            "gpt-3.5-test",
+            "--max-tokens",
+            "100",
+            "--criteria",
+            "Simple Criteria",
+        ]
+        sys.argv = test_argv
+        args = parse_args()
+
+        self.assertEqual(args.output_dir, "processed_feeds")  # Default value
+        self.assertFalse(args.generate_pages)  # Default value
+
+    def test_parse_args_generate_pages_flag(self):
+        """Test the --generate-pages flag sets the value to True."""
+        test_argv = [
+            "run_rss_buddy.py",
+            "--api-key",
+            "test_key",
+            "--feeds",
+            "http://feed1.com",
+            "--days-lookback",
+            "3",
+            "--model",
+            "gpt-3.5-test",
+            "--max-tokens",
+            "100",
+            "--criteria",
+            "Simple Criteria",
+            "--generate-pages",
+        ]
+        sys.argv = test_argv
+        args = parse_args()
+
+        self.assertTrue(args.generate_pages)
+
+    def test_parse_args_missing_required(self):
+        """Test that argparse exits if a required argument is missing."""
+        test_argv = [
+            "run_rss_buddy.py",
+            # Missing --api-key
+            "--feeds",
+            "http://feed1.com",
+            "--days-lookback",
+            "3",
+            "--model",
+            "gpt-3.5-test",
+            "--max-tokens",
+            "100",
+            "--criteria",
+            "Simple Criteria",
+        ]
+        sys.argv = test_argv
+        # argparse.parse_args() calls sys.exit() on error, which raises SystemExit
+        with self.assertRaises(SystemExit):
+            parse_args()
+
+    def test_parse_args_invalid_type(self):
+        """Test that argparse exits if an argument has the wrong type."""
+        test_argv = [
+            "run_rss_buddy.py",
+            "--api-key",
+            "test_key",
+            "--feeds",
+            "http://feed1.com",
+            "--days-lookback",
+            "not_an_int",  # Invalid type
+            "--model",
+            "gpt-3.5-test",
+            "--max-tokens",
+            "100",
+            "--criteria",
+            "Simple Criteria",
+        ]
+        sys.argv = test_argv
+        with self.assertRaises(SystemExit):
+            parse_args()
+
+
 if __name__ == "__main__":
     unittest.main()
