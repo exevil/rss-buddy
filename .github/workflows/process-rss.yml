@@ -83,9 +83,12 @@ jobs:
           # Ensure the system timezone is set to UTC
           echo "Running with timezone set to UTC"
           date
+
+          # Make sure the script is executable
+          chmod +x rss-buddy.sh
           
-          # Execute RSS Buddy with debug information
-          ./run_rss_buddy.py --generate-pages
+          # Execute RSS Buddy shell script, which reads env vars, and generate pages
+          ./rss-buddy.sh --pages
       
       # Configure Pages
       - name: Setup Pages
