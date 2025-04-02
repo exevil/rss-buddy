@@ -77,8 +77,16 @@ if [ -n "$OUTPUT_DIR" ]; then
     CMD_ARGS+=("--output-dir" "$OUTPUT_DIR")
 fi
 
-# Check if --pages option is provided
-if [ "$2" == "--pages" ]; then
+# Check if --pages option is provided among arguments
+GENERATE_PAGES=false
+for arg in "$@"; do
+    if [ "$arg" == "--pages" ]; then
+        GENERATE_PAGES=true
+        break
+    fi
+done
+
+if [ "$GENERATE_PAGES" = true ]; then
     echo "Will generate GitHub Pages..."
     CMD_ARGS+=("--generate-pages")
 fi
