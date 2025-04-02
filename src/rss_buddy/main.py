@@ -87,9 +87,7 @@ def main():
 
     # Process feeds
     print(f"RSS Buddy is processing {len(rss_feeds)} feeds...")
-    processed_files = feed_processor.process_feeds(rss_feeds)
-
-    print(f"Processed {len(processed_files)} feed(s)")
+    _processed_files = feed_processor.process_feeds(rss_feeds)
 
     return 0
 
