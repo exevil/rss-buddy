@@ -153,29 +153,33 @@ The test suite covers state management, AI interface, feed processing, and date 
 
 By default, running tests will also run the linter. Use the `--skip-lint` option to skip linting, or `--lint-only` to run only the linter.
 
-### Linting
+### Linting and Formatting
 
-The project uses flake8 for code quality checks. Linting is automatically run when executing tests, but you can also run it separately:
+The project uses Ruff for fast linting and code formatting. Ruff combines the functionality of tools like Flake8, isort, Black, and more into a single, high-performance tool.
 
+Linting and formatting are automatically run when executing tests using `run_tests.py`, but you can also run them separately using the `lint.py` script:
+
+```bash
+./lint.py [--paths PATH1 PATH2...]
 ```
-./lint.py [--paths PATH1 PATH2...] [--statistics] [--count]
-```
 
-or
+This script will first format the specified files using `ruff format` and then lint them using `ruff check --fix`.
 
-```
+Alternatively, you can run only the linter via the test script:
+
+```bash
 ./run_tests.py --lint-only [--lint-paths PATH1 PATH2...]
 ```
 
-Linter settings are configured in the `.flake8` file at the root of the project. You can modify these settings to adjust the linting rules:
+Ruff settings are configured in the `pyproject.toml` file at the root of the project. You can modify the `[tool.ruff.lint]` and `[tool.ruff.format]` sections to adjust rules, line length, and other behaviors:
 
-- `max-line-length`: Maximum allowed line length (default: 100)
-- `exclude`: Directories and files to exclude from linting
-- `ignore`: Error codes to ignore
-- `docstring-convention`: Style for docstrings (google)
-- `max-complexity`: Maximum allowed cyclomatic complexity
+- `line-length`: Maximum allowed line length (default: 100)
+- `select`: List of rule codes/prefixes to enable (e.g., "E", "W", "F", "I", "B")
+- `ignore`: List of specific rule codes to disable
+- `mccabe.max-complexity`: Maximum allowed cyclomatic complexity
+- `pydocstyle.convention`: Style for docstrings (e.g., "google")
 
-The linter and tests are automatically run on GitHub via CI workflows whenever code is pushed to the main branch or in pull requests.
+The linter/formatter and tests are automatically run on GitHub via CI workflows whenever code is pushed to the main branch or in pull requests.
 
 ## GitHub Pages Integration
 
