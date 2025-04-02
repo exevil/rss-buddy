@@ -37,9 +37,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install feedparser python-dateutil openai python-dotenv requests
-          # Make sure the script is executable
+          # Install the package itself in editable mode, which also installs dependencies
+          python -m pip install -e .
+          # Make sure the scripts are executable
           chmod +x run_rss_buddy.py
+          chmod +x rss-buddy.sh
       
       # Download state file from GitHub Pages if it exists
       - name: Fetch latest state from GitHub Pages

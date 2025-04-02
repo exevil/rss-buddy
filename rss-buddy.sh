@@ -42,23 +42,6 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
     exit 1
 fi
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
-
-# Activate virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-# Install dependencies if needed
-if [ ! -f "venv/.installed" ]; then
-    echo "Installing dependencies..."
-    pip install -r requirements.txt
-    touch venv/.installed
-fi
-
 # Run the RSS processor
 echo "Running rss-buddy..."
 
@@ -93,8 +76,5 @@ fi
 
 # Run the command with all arguments
 ./run_rss_buddy.py "${CMD_ARGS[@]}"
-
-# Deactivate virtual environment
-deactivate
 
 echo "Done!" 
