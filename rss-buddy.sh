@@ -124,14 +124,14 @@ fi
 
 # Execute the Python script with the final resolved parameters
 # Ensure parameters with spaces/newlines are quoted
-./run_rss_buddy.py \\
-    --api-key "$final_api_key" \\
-    --feeds "$final_feeds" \\
-    --days-lookback "$final_days_lookback" \\
-    --model "$final_model" \\
-    --max-tokens "$final_max_tokens" \\
-    --criteria "$final_criteria" \\
-    --output-dir "$final_output_dir" \\
+./run_rss_buddy.py \
+    --api-key "$final_api_key" \
+    --feeds "$final_feeds" \
+    --days-lookback "$final_days_lookback" \
+    --model "$final_model" \
+    --max-tokens "$final_max_tokens" \
+    --criteria "$final_criteria" \
+    --output-dir "$final_output_dir" \
     $GENERATE_PAGES_FLAG
 
 echo "Done!" 
