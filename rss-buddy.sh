@@ -45,36 +45,28 @@ fi
 # Run the RSS processor
 echo "Running rss-buddy..."
 
-# Set up command arguments
-CMD_ARGS=(
-    "--api-key" "$OPENAI_API_KEY"
-    "--feeds" "$RSS_FEEDS"
-    "--days-lookback" "$DAYS_LOOKBACK"
-    "--model" "$AI_MODEL"
-    "--max-tokens" "$SUMMARY_MAX_TOKENS"
-    "--criteria" "$USER_PREFERENCE_CRITERIA"
-)
-
-# Add output directory if set
-if [ -n "$OUTPUT_DIR" ]; then
-    CMD_ARGS+=("--output-dir" "$OUTPUT_DIR")
-fi
-
 # Check if --pages option is provided among arguments
-GENERATE_PAGES=false
+GENERATE_PAGES_FLAG=""
 for arg in "$@"; do
     if [ "$arg" == "--pages" ]; then
-        GENERATE_PAGES=true
+        echo "Will generate GitHub Pages..."
+        GENERATE_PAGES_FLAG="--generate-pages"
         break
     fi
 done
 
-if [ "$GENERATE_PAGES" = true ]; then
-    echo "Will generate GitHub Pages..."
-    CMD_ARGS+=("--generate-pages")
-fi
+# Construct the command arguments directly, ensuring variables are quoted
+# Using OUTPUT_DIR env var if set, otherwise default to processed_feeds
+./run_rss_buddy.py \
+    --api-key "$OPENAI_API_KEY" \
+    --feeds "$RSS_FEEDS" \
+    --days-lookback "$DAYS_LOOKBACK" \
+    --model "$AI_MODEL" \
+    --max-tokens "$SUMMARY_MAX_TOKENS" \
+    --criteria "$USER_PREFERENCE_CRITERIA" \
+    --output-dir "${OUTPUT_DIR:-processed_feeds}" \
+    $GENERATE_PAGES_FLAG
 
-# Run the command with all arguments
-./run_rss_buddy.py "${CMD_ARGS[@]}"
+# Removed VENV deactivation - handled by workflow
 
 echo "Done!" 
