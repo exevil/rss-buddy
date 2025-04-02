@@ -77,19 +77,33 @@ SUMMARY_MAX_TOKENS=150
 
 ## Usage
 
-### Installing as a Package
+### Installing the Package
+
+You can install the package locally. This is useful for development or running the tool directly from your environment.
 
 ```bash
-pip install -e .
+# Install for use (runtime dependencies only)
+pip install .
+
+# Install in editable mode with development dependencies
+pip install -e .[dev]
 ```
 
-This makes the `run_rss_buddy.py` script runnable.
+This makes the `rss-buddy` command available in your environment.
 
 ### Command-Line Options
 
-There are two main ways to run RSS Buddy:
+There are three main ways to run RSS Buddy:
 
-1.  **Using `run_rss_buddy.py` with explicit parameters:**
+1.  **Using the installed `rss-buddy` command:** (Recommended after installation)
+
+    ```bash
+    # Requires environment variables to be set (.env file or exported)
+    rss-buddy
+    ```
+    This command directly uses the `main` function defined as an entry point in `pyproject.toml` and relies on environment variables for configuration.
+
+2.  **Using `run_rss_buddy.py` with explicit parameters:**
 
     ```bash
     ./run_rss_buddy.py --api-key YOUR_API_KEY --feeds \"URL1,URL2\" \
@@ -100,7 +114,7 @@ There are two main ways to run RSS Buddy:
     *   `--output-dir`: Specifies where the `processed_state.json` file is stored (defaults to `processed_feeds`).
     *   `--generate-pages`: If included, runs the HTML generation step after processing feeds. Reads state from `--output-dir` and writes HTML/JSON to the `docs/` directory.
 
-2.  **Using the `rss-buddy.sh` convenience script:**
+3.  **Using the `rss-buddy.sh` convenience script:**
 
     ```bash
     # First set up your .env file or export required environment variables
@@ -112,7 +126,7 @@ There are two main ways to run RSS Buddy:
 
 ## Output Format
 
-When run with the `--generate-pages` flag (or `./rss-buddy.sh --pages`), the script generates a static HTML website in the `docs/` directory, suitable for deployment (e.g., via GitHub Pages).
+When run with the `--generate-pages` flag (or `./rss-buddy.sh --pages`, or implicitly when using the `rss-buddy` command if page generation is enabled in its logic - *check script*), the script generates a static HTML website in the `docs/` directory, suitable for deployment (e.g., via GitHub Pages).
 
 The `docs/` directory contains:
 
@@ -146,17 +160,18 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 ### Project Structure
 
 - `src/rss_buddy/` - Main package
-  - `main.py`: Orchestrates the processing workflow.
+  - `main.py`: Orchestrates the processing workflow and provides the `rss-buddy` entry point.
   - `feed_processor.py`: Fetches feeds, classifies new items, updates state.
   - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`).
   - `ai_interface.py`: Handles interactions with the OpenAI API.
   - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state.
 - `processed_feeds/` - Default directory for storing `processed_state.json`.
 - `docs/` - Default output directory for the generated HTML site.
-- `run_rss_buddy.py`: Command-line runner script.
+- `pyproject.toml`: Defines project metadata, dependencies, build system, and tool configurations (like Ruff).
+- `run_rss_buddy.py`: Legacy command-line runner script (might still be useful for specific parameter passing).
 - `run_tests.py`: Test suite runner.
-- `rss-buddy.sh`: Convenience shell script for execution.
-- `lint.py`: Linting script.
+- `rss-buddy.sh`: Convenience shell script for execution using environment variables.
+- `lint.py`: Linting script (wraps Ruff commands).
 
 ### Running Tests
 
