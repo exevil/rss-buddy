@@ -209,8 +209,9 @@ class MockAIInterface(AIInterface):
         # Generate a basic mock summary for testing
         summary = "<h3>Mock Digest Summary</h3><ul>"
         for article in articles:
-            summary += f"<li><a href='{article["link"]}'>{article["title"]}</a>: "
-            f"{article["summary"][:50]}...</li>"
+            summary += f"<li><a href='{article['link']}'>{article['title']}</a>: "
+            if "ai_summary" in article:
+                summary += f"{article['ai_summary']}</li>"
         summary += "</ul>"
 
         return summary
