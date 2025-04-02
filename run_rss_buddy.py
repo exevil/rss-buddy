@@ -92,8 +92,9 @@ def main():
     if args.generate_pages and exit_code == 0:
         try:
             from rss_buddy.generate_pages import generate_pages
-            generate_pages(args.output_dir, "docs")
-            print("Generated HTML pages in docs/ directory")
+            # Generate pages directly in the output directory
+            generate_pages(args.output_dir, args.output_dir)
+            print(f"Generated HTML pages in {args.output_dir}/ directory")
         except Exception as e:
             print(f"Error generating pages: {e}")
             exit_code = 1
