@@ -91,7 +91,7 @@ class TestRunRssBuddyScript(unittest.TestCase):
 
         # Verify generate_pages was called with the correct arguments
         # It should read data from the script's output_dir and write to 'docs'
-        mock_generate_pages.assert_called_once_with(data_dir=mock_output_dir, output_dir="docs")
+        mock_generate_pages.assert_called_once_with(data_dir=mock_output_dir, docs_dir="docs")
 
     @patch("run_rss_buddy.parse_args")
     @patch("run_rss_buddy.rss_buddy_main")  # Mock the main processing function

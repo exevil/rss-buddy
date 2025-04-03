@@ -80,7 +80,7 @@ def main():
             from rss_buddy.generate_pages import generate_pages
 
             # Generate pages: read state from output_dir, write HTML to docs/
-            generate_pages(data_dir=args.output_dir, output_dir="docs")
+            generate_pages(data_dir=args.output_dir, docs_dir="docs")
             print("Generated HTML pages in docs/ directory")
         except Exception as e:
             print(f"Error generating pages: {e}")
