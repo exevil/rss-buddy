@@ -1,6 +1,7 @@
 """Unit tests for the generate_pages module."""
 
 import hashlib
+import html
 import json
 import os
 import sys
@@ -45,7 +46,8 @@ class TestGeneratePages(unittest.TestCase):
 
         for i in range(num_feeds):
             feed_url = f"https://example.com/feed{i}.xml"
-            feed_data = {"entry_data": {}, "last_entry_date": None}
+            feed_title = f"Test Feed Title {i}"
+            feed_data = {"entry_data": {}, "feed_title": feed_title, "last_entry_date": None}
             entry_ids = []
             for j in range(items_per_feed):
                 entry_id = f"item_{i}_{j}"
@@ -211,13 +213,13 @@ class TestGeneratePages(unittest.TestCase):
         self._write_state(state_data)
 
         # Mock the helper to return basic metadata (using feed_url defined above)
+        feed_hash = hashlib.md5(feed_url.encode()).hexdigest()
         mock_generate_feed_html.return_value = {
-            "feed_id": hashlib.md5(feed_url.encode()).hexdigest(),
-            "html_filename": f"feed_{hashlib.md5(feed_url.encode()).hexdigest()}.html",
-            "title": "Feed 0 Item 0 (digest)",  # Title comes from first item in state
+            "filename": f"feed_{feed_hash}.html",
+            "title": "Test Feed 0",
             "processed_count": 1,
-            "digest_count": 0,
-            "lastUpdated": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M GMT"),
+            "digest_count": 1,
+            "last_updated": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M GMT"),
             "url": feed_url,
         }
 
@@ -233,21 +235,19 @@ class TestGeneratePages(unittest.TestCase):
         self.assertTrue(os.path.exists(index_path))
         with open(index_path, "r") as f:
             index_content = f.read()
-        self.assertIn(
-            f'<a href="feed_{hashlib.md5(feed_url.encode()).hexdigest()}.html">', index_content
-        )
-        self.assertIn("Feed 0 Item 0 (digest)", index_content)
+        self.assertIn(f'<a href="feed_{feed_hash}.html">', index_content)
+        self.assertIn("Test Feed 0", index_content)
 
         # 3. Feed file creation is now handled by the mocked helper, so we check the helper was called
         mock_generate_feed_html.assert_called_once()
-        call_args = mock_generate_feed_html.call_args[0]  # Check args passed to helper
-        self.assertEqual(call_args[0], feed_url)
-        self.assertIsInstance(call_args[1], generate_pages.StateManager)
-        # We don't strictly need to check AIInterface instance here as it's created inside generate_pages
-        # self.assertIsInstance(call_args[2], AIInterface)
-        self.assertEqual(call_args[3], 7)  # days_lookback
-        self.assertEqual(call_args[4], 7)  # summary_max_tokens (mocked get_env_int)
-        self.assertEqual(call_args[5], self.output_dir)
+        call_args = mock_generate_feed_html.call_args  # Get the call object
+        # Check kwargs passed to helper
+        self.assertEqual(call_args.kwargs["feed_url"], feed_url)
+        self.assertIsInstance(call_args.kwargs["state_manager"], generate_pages.StateManager)
+        self.assertIsInstance(call_args.kwargs["ai_interface"], generate_pages.AIInterface)
+        self.assertEqual(call_args.kwargs["days_lookback"], 7)  # From mock_get_int
+        self.assertEqual(call_args.kwargs["summary_max_tokens"], 7)  # From mock_get_int
+        self.assertEqual(call_args.kwargs["output_dir"], self.output_dir)
 
         # 4. State file copied
         copied_state_path = os.path.join(self.output_dir, "processed_state.json")
@@ -273,14 +273,13 @@ class TestGeneratePages(unittest.TestCase):
         self._write_state(state_data)
 
         # Mock the helper (using feed_url defined above)
-        feed_id_hash = hashlib.md5(feed_url.encode()).hexdigest()
+        feed_hash = hashlib.md5(feed_url.encode()).hexdigest()
         mock_generate_feed_html.return_value = {
-            "feed_id": feed_id_hash,
-            "html_filename": f"feed_{feed_id_hash}.html",  # Add the missing key
-            "title": "Digest Feed",
+            "filename": f"feed_{feed_hash}.html",
+            "title": "Test Feed 0 With Digest",
             "processed_count": 1,
             "digest_count": 1,
-            "lastUpdated": "now",
+            "last_updated": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M GMT"),
             "url": feed_url,
         }
 
@@ -291,7 +290,7 @@ class TestGeneratePages(unittest.TestCase):
         mock_generate_feed_html.assert_called_once()
         index_path = os.path.join(self.output_dir, "index.html")
         self.assertTrue(os.path.exists(index_path))
-        # feed_path = os.path.join(self.output_dir, f"feed_{feed_id}.html") # Not created by mock
+        # feed_path = os.path.join(self.output_dir, f"feed_{feed_hash}.html") # Not created by mock
         # self.assertTrue(os.path.exists(feed_path)) # Don't assert file existence
 
     @patch("rss_buddy.generate_pages._generate_feed_html")
@@ -312,14 +311,13 @@ class TestGeneratePages(unittest.TestCase):
         self._write_state(state_data)
 
         # Mock the helper (using feed_url defined above)
-        feed_id_hash = hashlib.md5(feed_url.encode()).hexdigest()
+        feed_hash = hashlib.md5(feed_url.encode()).hexdigest()
         mock_generate_feed_html.return_value = {
-            "feed_id": feed_id_hash,
-            "html_filename": f"feed_{feed_id_hash}.html",  # Add the missing key
-            "title": "Fail Feed",
+            "filename": f"feed_{feed_hash}.html",
+            "title": "Feed With Failing Digest",
             "processed_count": 0,
             "digest_count": 1,
-            "lastUpdated": "now",
+            "last_updated": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M GMT"),
             "url": feed_url,
         }  # Simulate data returned even on internal failure
 
@@ -330,7 +328,7 @@ class TestGeneratePages(unittest.TestCase):
         mock_generate_feed_html.assert_called_once()
         index_path = os.path.join(self.output_dir, "index.html")
         self.assertTrue(os.path.exists(index_path))
-        # feed_path = os.path.join(self.output_dir, f"feed_{feed_id}.html") # Not created by mock
+        # feed_path = os.path.join(self.output_dir, f"feed_{feed_hash}.html") # Not created by mock
         # self.assertTrue(os.path.exists(feed_path)) # Don't assert file existence
 
     @patch("rss_buddy.generate_pages._generate_feed_html")
@@ -346,7 +344,7 @@ class TestGeneratePages(unittest.TestCase):
         # Setup State (all items old)
         state_data = self._create_dummy_state(num_feeds=1, items_per_feed=2, days_lookback=7)
         feed_url = list(state_data["feeds"].keys())[0]
-        feed_id = hashlib.md5(feed_url.encode()).hexdigest()  # Restore calculation
+        feed_hash = hashlib.md5(feed_url.encode()).hexdigest()  # Restore calculation
         for item_id in state_data["feeds"][feed_url]["entry_data"]:
             state_data["feeds"][feed_url]["entry_data"][item_id]["date"] = (
                 datetime.now(timezone.utc) - timedelta(days=10)
@@ -363,10 +361,10 @@ class TestGeneratePages(unittest.TestCase):
         with open(index_path, "r") as f:
             index_content = f.read()
         # Check that the feed link does NOT exist because the helper returned None
-        self.assertNotIn(f'<a href="feed_{feed_id}.html">', index_content)
+        self.assertNotIn(f'<a href="feed_{feed_hash}.html">', index_content)
 
         # Feed file should NOT be created because helper returned None
-        feed_path = os.path.join(self.output_dir, f"feed_{feed_id}.html")
+        feed_path = os.path.join(self.output_dir, f"feed_{feed_hash}.html")
         self.assertFalse(os.path.exists(feed_path))
         # self.assertIn("No individually processed articles in the lookback period.", feed_content) # Can't check content
         # self.assertIn("No articles marked for digest in the lookback period.", feed_content) # Can't check content
@@ -401,6 +399,85 @@ class TestGeneratePages(unittest.TestCase):
         self.assertIn("feeds.json", files_in_output)
         self.assertIn("metadata.json", files_in_output)
         self.assertEqual(len(files_in_output), 4)
+
+    # --- Test Actual Filename Generation ---
+
+    @patch(
+        "rss_buddy.ai_interface.AIInterface.generate_consolidated_summary",
+        return_value="Mock Digest",
+    )
+    @patch("rss_buddy.generate_pages.get_env_str", return_value="dummy_key_or_model")
+    @patch("rss_buddy.generate_pages.get_env_int", return_value=7)
+    def test_generate_pages_uses_feed_title_for_filename(
+        self, mock_get_int, mock_get_str, mock_ai_summary
+    ):
+        """Test that the generated HTML filename uses the sanitized feed title from the state."""
+        # Setup state with a specific title needing sanitization
+        feed_url = "https://unique-feed.com/rss"
+        feed_title_raw = "My Awesome Feed! (Special Chars /\\?)"
+        state_data = {
+            "feeds": {
+                feed_url: {
+                    "feed_title": feed_title_raw,
+                    "entry_data": {
+                        "item1": {
+                            "id": "item1",
+                            "title": "Recent Processed Item",
+                            "link": "http://l.co/1",
+                            "summary": "Summary 1",
+                            "date": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+                            "processed_at": datetime.now(timezone.utc).isoformat(),
+                            "status": "processed",
+                        },
+                        "item2": {
+                            "id": "item2",
+                            "title": "Recent Digest Item",
+                            "link": "http://l.co/2",
+                            "summary": "Summary 2",
+                            "date": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+                            "processed_at": datetime.now(timezone.utc).isoformat(),
+                            "status": "digest",
+                        },
+                    },
+                }
+            },
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }
+        self._write_state(state_data)
+
+        # Calculate expected sanitized filename
+        expected_sanitized_title = generate_pages.sanitize_filename(feed_title_raw)
+        expected_filename = f"feed_{expected_sanitized_title}.html"
+
+        # Run Generation (without mocking _generate_feed_html)
+        generate_pages.generate_pages(data_dir=self.data_dir, output_dir=self.output_dir)
+
+        # Assertions
+        # 1. Check if the correctly named HTML file exists
+        expected_filepath = os.path.join(self.output_dir, expected_filename)
+        self.assertTrue(
+            os.path.exists(expected_filepath), f"Expected file {expected_filename} not found."
+        )
+
+        # 2. Check index.html links to the correct file
+        index_path = os.path.join(self.output_dir, "index.html")
+        self.assertTrue(os.path.exists(index_path))
+        with open(index_path, "r") as f:
+            index_content = f.read()
+        self.assertIn(f'<a href="{expected_filename}">', index_content)
+        self.assertIn(
+            html.escape(feed_title_raw), index_content
+        )  # Check title is displayed correctly too
+
+        # 3. Check feeds.json contains the correct filename
+        feeds_json_path = os.path.join(self.output_dir, "feeds.json")
+        self.assertTrue(os.path.exists(feeds_json_path))
+        with open(feeds_json_path, "r") as f:
+            feeds_metadata = json.load(f)
+        self.assertEqual(len(feeds_metadata), 1)
+        self.assertEqual(feeds_metadata[0]["url"], feed_url)
+        self.assertEqual(feeds_metadata[0]["title"], feed_title_raw)
+        self.assertEqual(feeds_metadata[0]["filename"], expected_filename)
 
 
 if __name__ == "__main__":

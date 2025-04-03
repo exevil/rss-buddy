@@ -237,6 +237,9 @@ class FeedProcessor:
         print(f"  Feed Title: {feed.feed.get('title', 'N/A')}")
         print(f"  Found {len(feed.entries)} total entries in feed.")
 
+        # Extract feed title (use N/A as fallback)
+        feed_title = feed.feed.get("title", "N/A")
+
         # Use timezone-aware datetime for comparison
         cutoff_date = datetime.datetime.now(timezone.utc) - timedelta(days=self.days_lookback)
         print(f"  Processing entries published on or after: {cutoff_date.date().isoformat()}")
@@ -288,7 +291,13 @@ class FeedProcessor:
 
             # Add to state
             try:
-                self.state_manager.add_processed_entry(feed_url, entry_id, status, entry_data)
+                self.state_manager.add_processed_entry(
+                    feed_url,
+                    entry_id,
+                    status,
+                    entry_data,
+                    feed_title=feed_title,
+                )
                 newly_processed_count += 1
                 print(f"      Added entry '{entry_title}' with status: {status}")
             except Exception as e:

@@ -229,7 +229,12 @@ class StateManager:
         return None  # Entry not found
 
     def add_processed_entry(
-        self, feed_url: str, entry_id: str, status: str, entry_data: Dict[str, Any]
+        self,
+        feed_url: str,
+        entry_id: str,
+        status: str,
+        entry_data: Dict[str, Any],
+        feed_title: Optional[str] = None,
     ):
         """Add or update a processed entry's state.
 
@@ -238,13 +243,19 @@ class StateManager:
             entry_id: The ID of the entry.
             status: The processing status ('processed' or 'digest').
             entry_data: The full data dictionary for the entry (must include 'date').
+            feed_title: The title of the feed (optional, stored once per feed).
         """
+        # Ensure the top-level feed structure exists
         if feed_url not in self.state.get("feeds", {}):
-            self.state["feeds"][feed_url] = {"entry_data": {}}
+            self.state["feeds"][feed_url] = {"entry_data": {}, "feed_title": None}
         elif "entry_data" not in self.state["feeds"][feed_url]:
             self.state["feeds"][feed_url]["entry_data"] = {}
 
-        # Ensure basic structure exists
+        # Store the feed title if provided and not already set
+        if feed_title and not self.state["feeds"][feed_url].get("feed_title"):
+            self.state["feeds"][feed_url]["feed_title"] = feed_title
+
+        # Ensure basic structure exists for the specific entry
         current_entry = self.state["feeds"][feed_url]["entry_data"].get(entry_id, {})
 
         # Update entry data, preserving existing fields if not provided in new data
@@ -297,3 +308,8 @@ class StateManager:
         )
 
         return items_in_period
+
+    def get_feed_title(self, feed_url: str) -> Optional[str]:
+        """Retrieve the stored title for a given feed URL."""
+        feed_state = self.state.get("feeds", {}).get(feed_url, {})
+        return feed_state.get("feed_title")

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Module for generating HTML pages from processed feed state."""
 
+import hashlib  # Import hashlib
 import html
 import json
 import os
+import re  # Import re for sanitization
 import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -91,6 +93,17 @@ def create_html_header(title: str) -> str:
         footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.8rem; color: #aaa; text-align: center; }}
     </style>
 </head>"""
+
+
+def sanitize_filename(name: str) -> str:
+    """Sanitize a string to be used as a safe filename."""
+    # Replace known problematic characters with underscores
+    name = name.replace(" ", "_")
+    name = re.sub(r"[/\\?:*\"<>|]", "_", name)
+    # Remove any characters that are not alphanumeric, underscore, or hyphen
+    name = re.sub(r"[^a-zA-Z0-9_.-]", "", name)
+    # Limit length
+    return name[:100]  # Limit length to avoid issues
 
 
 def create_index_html_start() -> str:
@@ -192,18 +205,15 @@ def _generate_feed_html(
     print(f"  Generating HTML for feed: {feed_url}")
     items = state_manager.get_items_in_lookback(feed_url, days_lookback)
 
+    # Retrieve the feed title from the state manager
+    feed_title = state_manager.get_feed_title(feed_url) or feed_url
+
     if not items:
         print(f"    No items found within lookback period for {feed_url}. Skipping HTML.")
         return None
 
     processed_items = [item for item in items if item.get("status") == "processed"]
     digest_items = [item for item in items if item.get("status") == "digest"]
-
-    # Use the title from the most recent item as the feed title (approximation)
-    # A better approach might store feed metadata in the state
-    feed_title = items[0].get("title", feed_url)  # Fallback to URL
-    if len(feed_title) > 70:  # Truncate long titles from items
-        feed_title = feed_title[:67] + "..."
 
     html_content = create_feed_html_start(feed_title)
     feed_last_updated = "Never"
@@ -249,30 +259,32 @@ def _generate_feed_html(
 
     html_content += create_html_footer()
 
-    # Generate filename (simple hash of URL for now)
-    import hashlib
-
-    feed_hash = hashlib.md5(feed_url.encode()).hexdigest()
-    html_filename = f"feed_{feed_hash}.html"
-    html_filepath = os.path.join(output_dir, html_filename)
+    # --- Filename Generation ---
+    # Sanitize the feed title for the filename
+    sanitized_title = sanitize_filename(feed_title)
+    if not sanitized_title:
+        # Fallback if title sanitization results in an empty string (e.g., only symbols)
+        sanitized_title = hashlib.md5(feed_url.encode("utf-8")).hexdigest()
+    feed_html_filename = f"feed_{sanitized_title}.html"
+    feed_html_path = os.path.join(output_dir, feed_html_filename)
 
     try:
-        with open(html_filepath, "w", encoding="utf-8") as f:
+        with open(feed_html_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-        print(f"    Successfully wrote feed HTML to {html_filepath}")
+        print(f"    Successfully generated HTML file: {feed_html_filename}")
 
-        # Return metadata for index page
+        # Return metadata for the index
         return {
+            "url": feed_url,
             "title": feed_title,
-            "url": feed_url,  # Original feed URL
-            "html_filename": html_filename,
-            "lastUpdated": feed_last_updated,
+            "filename": feed_html_filename,
+            "last_updated": feed_last_updated,
             "processed_count": len(processed_items),
             "digest_count": len(digest_items),
         }
 
     except IOError as e:
-        print(f"    Error writing HTML file {html_filepath}: {e}")
+        print(f"    Error writing HTML file {feed_html_filename}: {e}")
         return None
 
 
@@ -298,50 +310,69 @@ def generate_pages(data_dir: str = "processed_feeds", output_dir: str = "docs"):
     print(f"Generating HTML pages from data in '{data_dir}' to '{output_dir}'")
 
     # --- Configuration ---
-    # Get AI config from environment variables
+    # Get config directly from environment or use defaults
+    days_lookback = get_env_int("DAYS_LOOKBACK", 7)
+    summary_max_tokens = get_env_int("SUMMARY_MAX_TOKENS", 150)
     api_key = get_env_str("OPENAI_API_KEY")
-    ai_model = get_env_str("AI_MODEL", "gpt-3.5-turbo")  # Default model
-    summary_max_tokens = get_env_int("SUMMARY_MAX_TOKENS", 150)  # Default tokens
-    days_lookback = get_env_int("DAYS_LOOKBACK", 7)  # Default lookback
+    model = get_env_str("AI_MODEL")
 
-    if not api_key:
-        print("Error: OPENAI_API_KEY environment variable not set. Cannot generate digests.")
-        # Decide if we should proceed without digests or exit
-        # For now, let's proceed but digests will fail
+    if not api_key or not model:
+        print(
+            "Error: OPENAI_API_KEY and AI_MODEL environment variables are required for digest generation."
+        )
+        # Consider if generation should proceed without digests
 
     # --- Initialization ---
     os.makedirs(output_dir, exist_ok=True)
-    state_manager = StateManager(output_dir=data_dir)  # State lives in data_dir
-    ai_interface = AIInterface(api_key=api_key, model=ai_model)
+    state_manager = StateManager(output_dir=data_dir)  # Load state from data_dir
+    ai_interface = AIInterface(api_key=api_key, model=model) if api_key and model else None
 
-    # --- Process Feeds ---
-    index_html_content = create_index_html_start()
-    feeds_metadata = []
+    if ai_interface is None:
+        print("Warning: AI Interface not initialized. Digest generation will be skipped.")
+
     feed_urls = list(state_manager.state.get("feeds", {}).keys())
+    print(f"Found {len(feed_urls)} feeds in state file.")
 
-    if not feed_urls:
-        print("No feeds found in state file. No feed pages to generate.")
-    else:
-        print(f"Found {len(feed_urls)} feeds in state. Generating pages...")
-        for feed_url in feed_urls:
-            metadata = _generate_feed_html(
-                feed_url, state_manager, ai_interface, days_lookback, summary_max_tokens, output_dir
+    index_html = create_index_html_start()
+    feeds_metadata = []
+    processed_total = 0
+    digest_total = 0
+
+    for feed_url in feed_urls:
+        if ai_interface:
+            feed_metadata = _generate_feed_html(
+                feed_url=feed_url,
+                state_manager=state_manager,
+                ai_interface=ai_interface,  # Pass the initialized AI interface
+                days_lookback=days_lookback,
+                summary_max_tokens=summary_max_tokens,
+                output_dir=output_dir,
             )
-            if metadata:
-                feeds_metadata.append(metadata)
-                # Add to index page
-                digest_suffix = "s" if metadata["digest_count"] != 1 else ""
-                item_suffix = "s" if metadata["processed_count"] != 1 else ""
-                index_html_content += f'''        <li>
-                     <a href="{metadata["html_filename"]}">{html.escape(metadata["title"])}</a>
-                     <div class="feed-description">({metadata["processed_count"]} processed item{item_suffix}, {metadata["digest_count"]} item{digest_suffix} for digest)</div>
-                     <div class="updated">Last Item Update: {html.escape(metadata["lastUpdated"])}</div>
-                     <div class="feed-description"><small>Original URL: {html.escape(metadata["url"])}</small></div>
-                 </li>
-'''
+        else:
+            # Handle case where AI is not available (e.g., generate without digest)
+            # This part needs refinement based on desired behavior without AI
+            print(f"Skipping feed {feed_url} due to missing AI configuration.")
+            feed_metadata = None  # Or generate a basic page
+
+        if feed_metadata:
+            feeds_metadata.append(feed_metadata)
+            processed_total += feed_metadata.get("processed_count", 0)
+            digest_total += feed_metadata.get("digest_count", 0)
+
+            # Add entry to index HTML
+            index_html += f'''
+                <li>
+                    <a href="{html.escape(feed_metadata["filename"])}">{html.escape(feed_metadata["title"])}</a>
+                    <div class="feed-description">
+                        ({feed_metadata["processed_count"]} processed, {feed_metadata["digest_count"]} digest)<br>
+                        <small>Original URL: {html.escape(feed_metadata["url"])}</small><br>
+                        <small>Last Article: {feed_metadata["last_updated"]}</small>
+                    </div>
+                </li>
+            '''
 
     # --- Finalize Index Page ---
-    index_html_content += "    </ul>\n"  # Close the list
+    index_html += "    </ul>\n"  # Close the list
 
     # Add state info
     state_last_updated = state_manager.state.get("last_updated", "Unknown")
@@ -351,20 +382,20 @@ def generate_pages(data_dir: str = "processed_feeds", output_dir: str = "docs"):
     except Exception:
         pass  # Keep original string if parsing fails
 
-    index_html_content += f"""    <div class="state-info">
+    index_html += f"""    <div class="state-info">
         <strong>State Information:</strong>
         <div>Last Processed Run: {html.escape(state_last_updated)}</div>
         <div>Feeds Tracked: {len(feed_urls)}</div>
         <div>Lookback Period: {days_lookback} days</div>
     </div>
 """
-    index_html_content += create_html_footer()
+    index_html += create_html_footer()
 
     # --- Write Index HTML ---
     index_path = os.path.join(output_dir, "index.html")
     try:
         with open(index_path, "w", encoding="utf-8") as f:
-            f.write(index_html_content)
+            f.write(index_html)
         print(f"Successfully wrote index.html to {index_path}")
     except IOError as e:
         print(f"ERROR: Could not write index.html: {e}")
