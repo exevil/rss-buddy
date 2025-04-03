@@ -131,10 +131,11 @@ When run with the `--generate-pages` flag (or `./rss-buddy.sh --pages`, or impli
 The `docs/` directory contains:
 
 1.  **`index.html`**: The main entry point, listing all processed feeds with links to their individual pages.
-2.  **`feed_*.html`**: An individual HTML page for each processed RSS feed. Each page contains:
+2.  **`feed_*.html`**: An individual HTML page for each processed RSS feed. The filename (`*`) is a sanitized version of the feed\'s title. Each page contains:
+    *   A link to the original RSS feed URL.
     *   Articles classified as `processed` displayed individually (title, link, summary, publish date).
     *   A single `AI Digest` section containing an AI-generated summary of all articles classified as `digest` within the lookback period.
-3.  **`feeds.json`**: A JSON file containing metadata about each generated feed page (title, original URL, HTML filename, counts).
+3.  **`feeds.json`**: A JSON file containing metadata about each generated feed page (title, original URL, `filename`, counts).
 4.  **`metadata.json`**: A JSON file with metadata about the generation process (timestamp, counts).
 5.  **`processed_state.json`**: A copy of the state file used for the generation.
 
