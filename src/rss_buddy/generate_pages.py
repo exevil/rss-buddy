@@ -125,13 +125,14 @@ def create_index_html_start() -> str:
     return html_content
 
 
-def create_feed_html_start(feed_title: str) -> str:
+def create_feed_html_start(feed_title: str, feed_url: str) -> str:
     """Create the start of an individual feed's HTML page."""
     html_content = create_html_header(f"Feed: {feed_title}")
     html_content += f"""
 <body>
     <a href="index.html" class="back-link">← Back to all feeds</a>
     <h1>{html.escape(feed_title)}</h1>
+    <div class="feed-description"><small>Original Feed URL: <a href="{html.escape(feed_url)}">{html.escape(feed_url)}</a></small></div>
     <div>
 """
     return html_content
@@ -215,7 +216,7 @@ def _generate_feed_html(
     processed_items = [item for item in items if item.get("status") == "processed"]
     digest_items = [item for item in items if item.get("status") == "digest"]
 
-    html_content = create_feed_html_start(feed_title)
+    html_content = create_feed_html_start(feed_title, feed_url)
     feed_last_updated = "Never"
     if items:
         last_item_date = state_manager._parse_date(items[0].get("date"))

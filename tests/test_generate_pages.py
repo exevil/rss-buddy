@@ -96,9 +96,12 @@ class TestGeneratePages(unittest.TestCase):
     def test_create_feed_html_start(self):
         """Verify basic structure of feed page start."""
         title = "Feed Title <>&"
-        html = generate_pages.create_feed_html_start(title)
-        self.assertIn("<h1>Feed Title &lt;&gt;&amp;</h1>", html)
-        self.assertIn('<a href="index.html" class="back-link">', html)
+        feed_url = "https://example.com/feed"  # Add dummy feed_url
+        html_output = generate_pages.create_feed_html_start(title, feed_url)
+        self.assertIn("<h1>Feed Title &lt;&gt;&amp;</h1>", html_output)
+        self.assertIn('<a href="index.html" class="back-link">', html_output)
+        # Check that the link to the original feed URL is present
+        self.assertIn(f'<a href="{html.escape(feed_url)}">{html.escape(feed_url)}</a>', html_output)
 
     def test_create_html_footer(self):
         """Verify basic structure of HTML footer."""
