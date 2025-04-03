@@ -24,7 +24,7 @@ class StateManager:
         self.state_file = state_file or os.path.join(self.output_dir, "processed_state.json")
         self.state = self._load_state()
 
-    def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
+    def parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
         """Parse a date string into a timezone-aware datetime object (UTC)."""
         if not date_str:
             return None
@@ -78,67 +78,11 @@ class StateManager:
             with open(self.state_file, "r") as f:
                 state = json.load(f)
 
-                # --- Migration Logic ---
-                # Check for old structure ('processed_ids', 'digest') and migrate
-                needs_migration = False
-                for feed_url, feed_state in state.get("feeds", {}).items():
-                    if "processed_ids" in feed_state or "digest" in feed_state:
-                        needs_migration = True
-                        break  # Found one feed needing migration, no need to check others
+                # --- Migration Logic Removed ---
+                # The old migration code checking for 'processed_ids' or 'digest' keys
+                # and transforming the state has been removed as it's no longer needed.
 
-                if needs_migration:
-                    print("Migrating state file to new structure...")
-                    new_state = self._create_new_state()
-                    for feed_url, old_feed_state in state.get("feeds", {}).items():
-                        new_entry_data = {}
-                        # Migrate entries from old 'entry_data' if present
-                        if "entry_data" in old_feed_state:
-                            for entry_id, entry_details in old_feed_state["entry_data"].items():
-                                # Try to get original publish date
-                                publish_date_str = entry_details.get("date")
-                                # Basic structure for migrated entry
-                                new_entry_data[entry_id] = {
-                                    "id": entry_id,
-                                    "date": publish_date_str,  # Keep original date string
-                                    # Assume 'processed' if found here, status was not tracked before
-                                    "status": "processed",
-                                    # Use file's last updated time as a rough processed_at
-                                    "processed_at": state.get(
-                                        "last_updated", datetime.now(timezone.utc).isoformat()
-                                    ),
-                                    # Carry over other known fields if they exist
-                                    "title": entry_details.get("title"),
-                                    "link": entry_details.get("link"),
-                                    "summary": entry_details.get("summary"),
-                                    # Add other relevant fields if they were stored
-                                }
-                        # Add potentially missing entries from processed_ids (though they lack details)
-                        if "processed_ids" in old_feed_state:
-                            for entry_id in old_feed_state["processed_ids"]:
-                                if entry_id not in new_entry_data:
-                                    new_entry_data[entry_id] = {
-                                        "id": entry_id,
-                                        "date": None,  # No date info available
-                                        "status": "processed",  # Assume processed
-                                        "processed_at": state.get(
-                                            "last_updated", datetime.now(timezone.utc).isoformat()
-                                        ),
-                                        "title": None,  # No title info
-                                        "link": None,  # No link info
-                                        "summary": None,  # No summary info
-                                    }
-
-                        if new_entry_data:
-                            new_state["feeds"][feed_url] = {"entry_data": new_entry_data}
-
-                    state = new_state  # Replace old state with migrated state
-                    print("State migration complete.")
-                    # Consider saving the migrated state immediately
-                    # self.state = state
-                    # self.save_state()
-                # --- End Migration Logic ---
-
-                # Ensure basic structure exists after loading/migration
+                # Ensure basic structure exists after loading
                 if "feeds" not in state:
                     state["feeds"] = {}
                 state["last_updated"] = state.get(
@@ -173,7 +117,7 @@ class StateManager:
 
             for entry_id, entry_details in entry_data.items():
                 publish_date_str = entry_details.get("date")
-                publish_date = self._parse_date(publish_date_str)
+                publish_date = self.parse_date(publish_date_str)
 
                 # Keep entry if:
                 # 1. Date is missing (can't determine age)
@@ -227,6 +171,10 @@ class StateManager:
         if entry_data:
             return entry_data.get("status")  # Return status if entry exists
         return None  # Entry not found
+
+    def get_all_feed_urls(self) -> List[str]:
+        """Return a list of all feed URLs currently tracked in the state."""
+        return list(self.state.get("feeds", {}).keys())
 
     def add_processed_entry(
         self,
@@ -291,7 +239,7 @@ class StateManager:
 
         for entry_id, entry_details in entry_data.items():
             publish_date_str = entry_details.get("date")
-            publish_date = self._parse_date(publish_date_str)
+            publish_date = self.parse_date(publish_date_str)
 
             # Include entry if:
             # 1. Date is missing (assume recent or keep indefinitely?) - Let's keep for now.
@@ -302,7 +250,7 @@ class StateManager:
 
         # Optional: Sort by publish date descending (most recent first)
         items_in_period.sort(
-            key=lambda x: self._parse_date(x.get("date"))
+            key=lambda x: self.parse_date(x.get("date"))
             or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )

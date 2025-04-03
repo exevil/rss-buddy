@@ -12,7 +12,7 @@ RSS Buddy processes RSS feeds using OpenAI to determine which articles should be
 2.  Checks its internal state (`processed_feeds/processed_state.json`) to see if articles have already been processed.
 3.  For **new** articles, it uses an AI model (e.g., GPT-4) and user-defined criteria (`USER_PREFERENCE_CRITERIA`) to classify them as either `processed` or `digest`.
 4.  Stores the classification, title, link, summary, and original publish date for all processed articles within the lookback period in the state file.
-5.  Generates an HTML site (in the `docs/` directory) for browsing:
+5.  Generates an HTML site (in the `docs/` directory) for browsing using Jinja2 templates:
     *   An `index.html` page lists all tracked feeds.
     *   Each feed gets its own HTML page (`feed_*.html`).
     *   On a feed\'s page, `processed` articles are displayed individually.
@@ -162,10 +162,12 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 
 - `src/rss_buddy/` - Main package
   - `main.py`: Orchestrates the processing workflow and provides the `rss-buddy` entry point.
+  - `models.py`: Defines core data structures (e.g., `Article`, `FeedDisplayData`).
   - `feed_processor.py`: Fetches feeds, classifies new items, updates state.
   - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`).
   - `ai_interface.py`: Handles interactions with the OpenAI API.
-  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state.
+  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2.
+  - `templates/`: Contains the Jinja2 HTML templates (`base.html`, `index.html.j2`, `feed.html.j2`).
 - `processed_feeds/` - Default directory for storing `processed_state.json`.
 - `docs/` - Default output directory for the generated HTML site.
 - `pyproject.toml`: Defines project metadata, dependencies, build system, and tool configurations (like Ruff).

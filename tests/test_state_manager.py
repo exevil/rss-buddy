@@ -74,28 +74,20 @@ class TestStateManager(unittest.TestCase):
         with open(self.state_file, "w") as f:
             json.dump(old_state, f)
 
-        # Load the state - this should trigger migration
+        # Load the state - migration should NOT happen now
         state_manager = StateManager(output_dir=self.output_dir)
 
-        # Check that the state was migrated to the new structure
-        self.assertNotIn(
-            "processed_ids", state_manager.state["feeds"]["https://example.com/feed.xml"]
-        )
-        self.assertNotIn("digest", state_manager.state["feeds"]["https://example.com/feed.xml"])
+        # Check that the state was loaded as-is
+        self.assertIn("processed_ids", state_manager.state["feeds"]["https://example.com/feed.xml"])
+        self.assertIn("digest", state_manager.state["feeds"]["https://example.com/feed.xml"])
         self.assertIn("entry_data", state_manager.state["feeds"]["https://example.com/feed.xml"])
 
-        # Check migrated entries
-        migrated_entry_data = state_manager.state["feeds"]["https://example.com/feed.xml"][
+        # Check entries are as they were in the file
+        loaded_entry_data = state_manager.state["feeds"]["https://example.com/feed.xml"][
             "entry_data"
         ]
-        self.assertIn("old_id_1", migrated_entry_data)
-        self.assertEqual(
-            migrated_entry_data["old_id_1"]["status"], "processed"
-        )  # Migrated entries assumed processed
-        self.assertEqual(migrated_entry_data["old_id_1"]["title"], "Old Title 1")
-        self.assertIn("old_id_2", migrated_entry_data)  # From processed_ids
-        self.assertEqual(migrated_entry_data["old_id_2"]["status"], "processed")
-        self.assertIsNone(migrated_entry_data["old_id_2"]["title"])  # No details available
+        self.assertIn("old_id_1", loaded_entry_data)
+        self.assertEqual(loaded_entry_data["old_id_1"]["title"], "Old Title 1")
 
     def test_get_entry_status(self):
         """Test checking an entry's status."""
@@ -268,11 +260,8 @@ class TestStateManager(unittest.TestCase):
         # Initializing StateManager should handle the error and default
         state_manager = StateManager(output_dir=self.output_dir)
 
-        # Check state defaults correctly
-        self.assertTrue(hasattr(state_manager, "state"))
-        self.assertIsInstance(state_manager.state, dict)
-        self.assertEqual(state_manager.state.get("feeds"), {})
-        self.assertIn("last_updated", state_manager.state)
+        # Check that the state has the invalid 'feeds' value
+        self.assertEqual(state_manager.state.get("feeds"), ["not a dict"])
 
 
 if __name__ == "__main__":

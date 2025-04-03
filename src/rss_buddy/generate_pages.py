@@ -1,24 +1,37 @@
 #!/usr/bin/env python3
-"""Module for generating HTML pages from processed feed state."""
+"""Module for generating HTML pages from processed feed state using Jinja2 templates."""
 
 import hashlib  # Import hashlib
-import html
 import json
 import os
 import re  # Import re for sanitization
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import List, Optional
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # Import necessary components from the package
 try:
     # Assume running as part of the package
     from .ai_interface import AIInterface
+    from .models import (
+        Article,
+        FeedDisplayData,
+        IndexDisplayData,
+        IndexFeedInfo,
+    )  # New model imports
     from .state_manager import StateManager
 except ImportError:
     # Allow running as a script
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from rss_buddy.ai_interface import AIInterface
+    from rss_buddy.models import (
+        Article,
+        FeedDisplayData,
+        IndexDisplayData,
+        IndexFeedInfo,
+    )  # New model imports
     from rss_buddy.state_manager import StateManager
 
 
@@ -62,133 +75,56 @@ def get_env_int(var_name: str, default: int) -> int:
 # --- HTML Generation Helpers ---
 
 
-def create_html_header(title: str) -> str:
-    """Create the HTML header section with styles."""
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{html.escape(title)}</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; line-height: 1.6; background-color: #fff; color: #333; }}
-        h1 {{ border-bottom: 1px solid #eee; padding-bottom: 10px; color: #1a1a1a; }}
-        h2 {{ margin-top: 30px; color: #0056b3; }} /* Blue for article titles */
-        h3 {{ margin-top: 20px; color: #555; }}
-        a {{ color: #0056b3; text-decoration: none; }}
-        a:hover {{ text-decoration: underline; }}
-        .article, .digest {{ margin-bottom: 30px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .digest {{ background-color: #eef7ff; border-left: 5px solid #007bff; }} /* Lighter blue for digest */
-        .digest h2 {{ color: #004085; }} /* Darker blue for digest title */
-        .article-meta {{ font-size: 0.85rem; color: #666; margin-bottom: 10px; }}
-        .back-link {{ display: inline-block; margin-bottom: 20px; padding: 8px 15px; background-color: #e9ecef; border-radius: 5px; color: #495057; font-size: 0.9rem; }}
-        .back-link:hover {{ background-color: #dee2e6; text-decoration: none; }}
-        .feed-description {{ font-size: 0.9rem; color: #6c757d; margin: 5px 0 15px 0; }}
-        .updated {{ font-size: 0.8rem; color: #888; margin-top: 10px; }}
-        .state-info {{ margin-top: 30px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 0.9rem; color: #495057; }}
-        .explanation {{ margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #28a745; border-radius: 5px; }}
-        .index-list {{ list-style: none; padding: 0; }}
-        .index-list li {{ margin-bottom: 20px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #fff; }}
-        .index-list a {{ font-size: 1.1rem; font-weight: bold; }}
-        footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.8rem; color: #aaa; text-align: center; }}
-    </style>
-</head>"""
-
-
 def sanitize_filename(name: str) -> str:
     """Sanitize a string to be used as a safe filename."""
     # Replace known problematic characters with underscores
     name = name.replace(" ", "_")
-    name = re.sub(r"[/\\?:*\"<>|]", "_", name)
+    name = re.sub(r"[\/\\?:*\"<>|]", "_", name)  # Corrected regex
     # Remove any characters that are not alphanumeric, underscore, or hyphen
     name = re.sub(r"[^a-zA-Z0-9_.-]", "", name)
     # Limit length
-    return name[:100]  # Limit length to avoid issues
+    return name[:100]
 
 
-def create_index_html_start() -> str:
-    """Create the start of the index HTML file."""
-    html_content = create_html_header("RSS Buddy Processed Feeds")
-    html_content += """
-<body>
-    <h1>RSS Buddy Processed Feeds</h1>
-    <div class="explanation">
-        <p>These feeds are processed with AI to prioritize content:</p>
-        <ul>
-            <li><strong>Processed articles:</strong> Shown individually below.</li>
-            <li><strong>Digest articles:</strong> Consolidated into a single digest section (highlighted in blue) by AI.</li>
-        </ul>
-    </div>
-    <p>Select a feed to view:</p>
-    <ul class="index-list">
-"""
-    return html_content
+def _hydrate_article(item_dict: dict, state_manager: StateManager) -> Article:
+    """Converts a dictionary from state_manager into an Article object, using StateManager for date parsing."""
+    published_date = None
+    processed_date = None
+    try:
+        pub_date_str = item_dict.get("date")
+        if pub_date_str:
+            published_date = state_manager.parse_date(pub_date_str)  # Use StateManager's parser
+            if published_date is None:
+                print(
+                    f"Warning: StateManager could not parse publish date '{pub_date_str}' for item {item_dict.get('id')}"
+                )
 
+        proc_date_str = item_dict.get("processed_at")
+        if proc_date_str:
+            # processed_at is expected to be ISO format, direct parsing is likely okay
+            try:
+                processed_date = datetime.fromisoformat(
+                    proc_date_str.replace("Z", "+00:00")
+                ).astimezone(timezone.utc)
+            except (ValueError, TypeError) as proc_e:
+                print(
+                    f"Warning: Could not parse processed_at date '{proc_date_str}' for item {item_dict.get('id')}: {proc_e}"
+                )
 
-def create_feed_html_start(feed_title: str, feed_url: str) -> str:
-    """Create the start of an individual feed's HTML page."""
-    html_content = create_html_header(f"Feed: {feed_title}")
-    html_content += f"""
-<body>
-    <a href="index.html" class="back-link">← Back to all feeds</a>
-    <h1>{html.escape(feed_title)}</h1>
-    <div class="feed-description"><small>Original Feed URL: <a href="{html.escape(feed_url)}">{html.escape(feed_url)}</a></small></div>
-    <div>
-"""
-    return html_content
+    except Exception as e:  # Catch potential errors in state_manager.parse_date or isoformat
+        print(f"Warning: Error processing dates for article {item_dict.get('id')}: {e}")
 
-
-def format_item_html(item: Dict[str, Any], is_digest_item: bool = False) -> str:
-    """Formats a single item (processed or digest) into HTML."""
-    title = item.get("title", "Untitled Item")
-    link = item.get("link", "#")
-    summary = item.get("summary", "")
-    date_str = item.get("date")
-    processed_at_str = item.get("processed_at")
-
-    date_display = "Date not available"
-    if date_str:
-        try:
-            # Attempt to parse the date for display
-            parsed_date = StateManager()._parse_date(date_str)  # Use parser from StateManager
-            if parsed_date:
-                date_display = parsed_date.strftime("%a, %d %b %Y %H:%M GMT")
-            else:
-                date_display = f"Original: {html.escape(date_str)}"  # Show original if unparseable
-        except Exception:
-            date_display = f"Original: {html.escape(date_str)}"
-
-    processed_display = ""
-    if processed_at_str:
-        try:
-            processed_dt = datetime.fromisoformat(processed_at_str).astimezone(timezone.utc)
-            processed_display = f" | Processed: {processed_dt.strftime('%Y-%m-%d %H:%M GMT')}"
-        except Exception:
-            pass  # Ignore error if processed_at is invalid
-
-    css_class = "digest" if is_digest_item else "article"
-    tag = "h3" if is_digest_item else "h2"  # Use H3 for digest title for hierarchy
-
-    html_output = f'''
-        <div class="{css_class}">
-            <{tag}><a href="{html.escape(link)}">{html.escape(title)}</a></{tag}>
-            <div class="article-meta">Published: {date_display}{processed_display}</div>
-            <div>{summary}</div>
-        </div>
-'''
-    return html_output
-
-
-def create_html_footer() -> str:
-    """Creates the HTML footer section."""
-    now = datetime.now(timezone.utc)
-    return f"""
-    <footer>
-        Generated by RSS Buddy on {now.strftime("%Y-%m-%d %H:%M:%S UTC")}
-    </footer>
-</body>
-</html>
-"""
+    return Article(
+        id=item_dict.get(
+            "id", hashlib.sha1(item_dict.get("link", "").encode()).hexdigest()
+        ),  # Ensure ID exists
+        title=item_dict.get("title", "Untitled Article"),
+        link=item_dict.get("link", "#"),
+        summary=item_dict.get("summary", ""),
+        published_date=published_date,
+        processed_date=processed_date,
+        status=item_dict.get("status"),
+    )
 
 
 # --- Core Logic ---
@@ -201,236 +137,236 @@ def _generate_feed_html(
     days_lookback: int,
     summary_max_tokens: int,
     output_dir: str,
-) -> Optional[Dict[str, Any]]:
-    """Generates the HTML page for a single feed and returns its metadata."""
+    jinja_env: Environment,
+    generation_time_display: str,
+) -> Optional[IndexFeedInfo]:
+    """Generates the HTML page for a single feed using Jinja2 and returns its metadata."""
     print(f"  Generating HTML for feed: {feed_url}")
-    items = state_manager.get_items_in_lookback(feed_url, days_lookback)
+    # Get items as dictionaries from state manager
+    items_dict = state_manager.get_items_in_lookback(feed_url, days_lookback)
 
-    # Retrieve the feed title from the state manager
     feed_title = state_manager.get_feed_title(feed_url) or feed_url
 
-    if not items:
+    if not items_dict:
         print(f"    No items found within lookback period for {feed_url}. Skipping HTML.")
         return None
 
-    processed_items = [item for item in items if item.get("status") == "processed"]
-    digest_items = [item for item in items if item.get("status") == "digest"]
+    # Convert dictionaries to Article objects
+    all_articles = [_hydrate_article(item, state_manager) for item in items_dict]
 
-    html_content = create_feed_html_start(feed_title, feed_url)
-    feed_last_updated = "Never"
-    if items:
-        last_item_date = state_manager._parse_date(items[0].get("date"))
-        if last_item_date:
-            feed_last_updated = last_item_date.strftime("%a, %d %b %Y %H:%M GMT")
+    # Sort articles by published date (newest first), handling None dates
+    all_articles.sort(
+        key=lambda x: x.published_date
+        if x.published_date
+        else datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
 
-    # Add Processed Items
-    if processed_items:
-        html_content += "<h3>Processed Articles</h3>"
-        for item in processed_items:
-            html_content += format_item_html(item, is_digest_item=False)
-    else:
-        html_content += "<p>No individually processed articles in the lookback period.</p>"
+    processed_articles = [article for article in all_articles if article.status == "processed"]
+    digest_articles = [article for article in all_articles if article.status == "digest"]
 
-    # Add Digest Items (Consolidated)
-    if digest_items:
-        print(f"    Generating digest for {len(digest_items)} items...")
+    feed_last_updated_display = "Never"
+    if all_articles and all_articles[0].published_date:
+        feed_last_updated_display = all_articles[0].published_date.strftime(
+            "%a, %d %b %Y %H:%M GMT"
+        )
+
+    ai_digest_summary = None
+    if digest_articles:
+        print(f"    Generating digest for {len(digest_articles)} items...")
         try:
-            digest_summary_html = ai_interface.generate_consolidated_summary(
-                articles=digest_items, max_tokens=summary_max_tokens
-            )
-            if digest_summary_html:
-                # Wrap the AI summary in our digest structure
-                digest_wrapper = {
-                    "title": f"AI Digest ({len(digest_items)} items)",
-                    "link": "#",  # Digest doesn't have a single link
-                    "summary": digest_summary_html,
-                    "date": datetime.now(timezone.utc).isoformat(),  # Use generation time
+            # Pass the Article objects directly if AI interface can handle them,
+            # otherwise, convert back to dicts if needed. Let's assume it needs dicts for now.
+            digest_dicts = [
+                {
+                    "title": a.title,
+                    "link": a.link,
+                    "summary": a.summary,
+                    "date": a.published_date.isoformat() if a.published_date else None,
                 }
-                html_content += format_item_html(digest_wrapper, is_digest_item=True)
-            else:
-                html_content += '<div class="digest"><h3>AI Digest</h3><p>Could not generate digest summary.</p></div>'
-                print("    AI digest generation returned None.")
-        except Exception as e:
-            html_content += (
-                f'<div class="digest"><h3>AI Digest</h3><p>Error generating digest: {e}</p></div>'
+                for a in digest_articles
+            ]
+            ai_digest_summary = ai_interface.generate_consolidated_summary(
+                articles=digest_dicts, max_tokens=summary_max_tokens
             )
-            print(f"    Error during AI digest generation: {e}")
-    else:
-        html_content += "<p>No articles marked for digest in the lookback period.</p>"
+        except Exception as e:
+            print(f"Error generating digest summary for {feed_url}: {e}")
+            ai_digest_summary = "<p><i>Error generating summary.</i></p>"
 
-    html_content += create_html_footer()
+    # Prepare data for the template
+    feed_data = FeedDisplayData(
+        url=feed_url,
+        title=feed_title,
+        processed_items=processed_articles,
+        digest_items=digest_articles,  # Keep original items for count etc.
+        ai_digest_summary=ai_digest_summary,
+        last_updated_display=feed_last_updated_display,
+        # generation_time_display is added in the template context below
+    )
 
-    # --- Filename Generation ---
-    # Sanitize the feed title for the filename
-    sanitized_title = sanitize_filename(feed_title)
-    if not sanitized_title:
-        # Fallback if title sanitization results in an empty string (e.g., only symbols)
-        sanitized_title = hashlib.md5(feed_url.encode("utf-8")).hexdigest()
-    feed_html_filename = f"feed_{sanitized_title}.html"
-    feed_html_path = os.path.join(output_dir, feed_html_filename)
+    # Render the template
+    template = jinja_env.get_template("feed.html.j2")
+    html_content = template.render(
+        feed_data=feed_data, generation_time_display=generation_time_display
+    )
 
+    # Save the HTML file
+    filename_base = sanitize_filename(feed_title)
+    html_filename = f"feed_{filename_base}.html"
+    html_filepath = os.path.join(output_dir, html_filename)
     try:
-        with open(feed_html_path, "w", encoding="utf-8") as f:
+        with open(html_filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
-        print(f"    Successfully generated HTML file: {feed_html_filename}")
-
-        # Return metadata for the index
-        return {
-            "url": feed_url,
-            "title": feed_title,
-            "filename": feed_html_filename,
-            "last_updated": feed_last_updated,
-            "processed_count": len(processed_items),
-            "digest_count": len(digest_items),
-        }
-
+        print(f"    Successfully generated: {html_filepath}")
     except IOError as e:
-        print(f"    Error writing HTML file {feed_html_filename}: {e}")
+        print(f"Error writing HTML file {html_filepath}: {e}")
         return None
 
-
-def _copy_state_file(data_dir: str, output_dir: str):
-    """Copies the state file from data_dir to output_dir."""
-    state_filename = "processed_state.json"
-    src_path = os.path.join(data_dir, state_filename)
-    dst_path = os.path.join(output_dir, state_filename)
-
-    if os.path.exists(src_path):
-        try:
-            with open(src_path, "rb") as src, open(dst_path, "wb") as dst:
-                dst.write(src.read())
-            print(f"Copied state file to {dst_path}")
-        except IOError as e:
-            print(f"Error copying state file from {src_path} to {dst_path}: {e}")
-    else:
-        print(f"Warning: State file not found in {data_dir}")
+    # Return metadata for the index page
+    return IndexFeedInfo(
+        title=feed_title,
+        filename=html_filename,
+        processed_count=len(processed_articles),
+        digest_count=len(digest_articles),
+        original_url=feed_url,
+    )
 
 
-def generate_pages(data_dir: str = "processed_feeds", output_dir: str = "docs"):
-    """Generate HTML pages from the processed state."""
-    print(f"Generating HTML pages from data in '{data_dir}' to '{output_dir}'")
+def generate_pages(data_dir: str, docs_dir: str = "docs"):
+    """Generates the full static HTML site from the state file using Jinja2 templates."""
+    print("Starting HTML page generation...")
 
-    # --- Configuration ---
-    # Get config directly from environment or use defaults
-    days_lookback = get_env_int("DAYS_LOOKBACK", 7)
-    summary_max_tokens = get_env_int("SUMMARY_MAX_TOKENS", 150)
+    state_file = os.path.join(data_dir, "processed_state.json")
+    if not os.path.exists(state_file):
+        print(f"Error: State file not found at {state_file}")
+        return
+
+    # --- Load Config ---
+    # API Key might not be strictly needed here if summaries are pre-generated,
+    # but keeping it for potential future use or regeneration needs.
     api_key = get_env_str("OPENAI_API_KEY")
-    model = get_env_str("AI_MODEL")
+    if not api_key:
+        # Allow proceeding without API key if only rendering existing state? Maybe.
+        # For digest generation, it's required.
+        print("Error: OPENAI_API_KEY environment variable not set.")
+        # Depending on strictness, you might exit here.
+        # return
 
-    if not api_key or not model:
-        print(
-            "Error: OPENAI_API_KEY and AI_MODEL environment variables are required for digest generation."
-        )
-        # Consider if generation should proceed without digests
+    # Model needed for AIInterface init and digest generation
+    ai_model = get_env_str("AI_MODEL", "gpt-3.5-turbo")
+    summary_max_tokens = get_env_int("SUMMARY_MAX_TOKENS", 150)
+    days_lookback = get_env_int("DAYS_LOOKBACK", 7)
 
-    # --- Initialization ---
-    os.makedirs(output_dir, exist_ok=True)
-    state_manager = StateManager(output_dir=data_dir)  # Load state from data_dir
-    ai_interface = AIInterface(api_key=api_key, model=model) if api_key and model else None
+    # --- Initialize Components ---
+    state_manager = StateManager(state_file=state_file)
 
-    if ai_interface is None:
-        print("Warning: AI Interface not initialized. Digest generation will be skipped.")
+    # Initialize AI Interface (needed for digests)
+    # Consider making AIInterface optional if no digests need generation
+    ai_interface = AIInterface(api_key=api_key, model=ai_model)
 
-    feed_urls = list(state_manager.state.get("feeds", {}).keys())
-    print(f"Found {len(feed_urls)} feeds in state file.")
+    # Initialize Jinja2 Environment
+    template_dir = os.path.join(os.path.dirname(__file__), "templates")
+    if not os.path.isdir(template_dir):
+        print(f"Error: Templates directory not found at {template_dir}")
+        # Try relative path as fallback if running as script vs package
+        alt_template_dir = os.path.join(os.getcwd(), "src", "rss_buddy", "templates")
+        if os.path.isdir(alt_template_dir):
+            template_dir = alt_template_dir
+        else:
+            print(f"Also checked: {alt_template_dir}")
+            return  # Cannot proceed without templates
 
-    index_html = create_index_html_start()
-    feeds_metadata = []
-    processed_total = 0
-    digest_total = 0
+    print(f"Using template directory: {template_dir}")
+    jinja_env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "xml"]),  # Enable autoescaping
+    )
+
+    # --- Prepare Output ---
+    os.makedirs(docs_dir, exist_ok=True)
+    generation_time = datetime.now(timezone.utc)
+    generation_time_display = generation_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # --- Generate Feed Pages and Collect Index Data ---
+    feed_urls = state_manager.get_all_feed_urls()
+    index_feeds_info: List[IndexFeedInfo] = []
 
     for feed_url in feed_urls:
-        if ai_interface:
-            feed_metadata = _generate_feed_html(
-                feed_url=feed_url,
-                state_manager=state_manager,
-                ai_interface=ai_interface,  # Pass the initialized AI interface
-                days_lookback=days_lookback,
-                summary_max_tokens=summary_max_tokens,
-                output_dir=output_dir,
-            )
-        else:
-            # Handle case where AI is not available (e.g., generate without digest)
-            # This part needs refinement based on desired behavior without AI
-            print(f"Skipping feed {feed_url} due to missing AI configuration.")
-            feed_metadata = None  # Or generate a basic page
+        feed_info = _generate_feed_html(
+            feed_url=feed_url,
+            state_manager=state_manager,
+            ai_interface=ai_interface,
+            days_lookback=days_lookback,
+            summary_max_tokens=summary_max_tokens,
+            output_dir=docs_dir,
+            jinja_env=jinja_env,
+            generation_time_display=generation_time_display,
+        )
+        if feed_info:
+            index_feeds_info.append(feed_info)
 
-        if feed_metadata:
-            feeds_metadata.append(feed_metadata)
-            processed_total += feed_metadata.get("processed_count", 0)
-            digest_total += feed_metadata.get("digest_count", 0)
+    # Sort index feeds alphabetically by title
+    index_feeds_info.sort(key=lambda x: x.title.lower())
 
-            # Add entry to index HTML
-            index_html += f'''
-                <li>
-                    <a href="{html.escape(feed_metadata["filename"])}">{html.escape(feed_metadata["title"])}</a>
-                    <div class="feed-description">
-                        ({feed_metadata["processed_count"]} processed, {feed_metadata["digest_count"]} digest)<br>
-                        <small>Original URL: {html.escape(feed_metadata["url"])}</small><br>
-                        <small>Last Article: {feed_metadata["last_updated"]}</small>
-                    </div>
-                </li>
-            '''
+    # --- Generate Index Page ---
+    index_data = IndexDisplayData(
+        feeds=index_feeds_info, generation_time_display=generation_time_display
+    )
+    index_template = jinja_env.get_template("index.html.j2")
+    index_html_content = index_template.render(index_data=index_data)
 
-    # --- Finalize Index Page ---
-    index_html += "    </ul>\n"  # Close the list
-
-    # Add state info
-    state_last_updated = state_manager.state.get("last_updated", "Unknown")
+    index_filepath = os.path.join(docs_dir, "index.html")
     try:
-        parsed_update_time = datetime.fromisoformat(state_last_updated).astimezone(timezone.utc)
-        state_last_updated = parsed_update_time.strftime("%Y-%m-%d %H:%M:%S UTC")
-    except Exception:
-        pass  # Keep original string if parsing fails
-
-    index_html += f"""    <div class="state-info">
-        <strong>State Information:</strong>
-        <div>Last Processed Run: {html.escape(state_last_updated)}</div>
-        <div>Feeds Tracked: {len(feed_urls)}</div>
-        <div>Lookback Period: {days_lookback} days</div>
-    </div>
-"""
-    index_html += create_html_footer()
-
-    # --- Write Index HTML ---
-    index_path = os.path.join(output_dir, "index.html")
-    try:
-        with open(index_path, "w", encoding="utf-8") as f:
-            f.write(index_html)
-        print(f"Successfully wrote index.html to {index_path}")
+        with open(index_filepath, "w", encoding="utf-8") as f:
+            f.write(index_html_content)
+        print(f"Successfully generated: {index_filepath}")
     except IOError as e:
-        print(f"ERROR: Could not write index.html: {e}")
+        print(f"Error writing index HTML file {index_filepath}: {e}")
 
-    # --- Write Feeds JSON ---
-    json_path = os.path.join(output_dir, "feeds.json")
-    try:
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(feeds_metadata, f, indent=2)
-        print(f"Successfully wrote feeds.json to {json_path}")
-    except IOError as e:
-        print(f"ERROR: Could not write feeds.json: {e}")
-
-    # --- Copy State File ---
-    _copy_state_file(data_dir, output_dir)
-
-    # --- Write Metadata File ---
-    metadata_path = os.path.join(output_dir, "metadata.json")
-    run_metadata = {
-        "generation_time_utc": datetime.now(timezone.utc).isoformat(),
-        "feeds_generated": len(feeds_metadata),
-        "source_data_dir": os.path.abspath(data_dir),
-        "output_dir": os.path.abspath(output_dir),
+    # --- Generate Metadata/State Copy (Optional but good practice) ---
+    metadata = {
+        "generated_at": generation_time.isoformat(),
+        "total_feeds": len(index_feeds_info),
+        "total_processed": sum(f.processed_count for f in index_feeds_info),
+        "total_digest": sum(f.digest_count for f in index_feeds_info),
+        "days_lookback": days_lookback,
     }
+    metadata_filepath = os.path.join(docs_dir, "metadata.json")
     try:
-        with open(metadata_path, "w", encoding="utf-8") as f:
-            json.dump(run_metadata, f, indent=2)
-        print(f"Successfully wrote metadata.json to {metadata_path}")
+        with open(metadata_filepath, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
     except IOError as e:
-        print(f"ERROR: Could not write metadata.json: {e}")
+        print(f"Error writing metadata file {metadata_filepath}: {e}")
+
+    # Copy state file for reference
+    state_copy_filepath = os.path.join(docs_dir, "processed_state.json")
+    try:
+        import shutil
+
+        shutil.copy2(state_file, state_copy_filepath)
+    except Exception as e:
+        print(f"Error copying state file to {state_copy_filepath}: {e}")
+
+    print(f"HTML page generation finished. Output in: {docs_dir}")
 
 
 if __name__ == "__main__":
-    # Get directories from args or use defaults
-    data_dir_arg = sys.argv[1] if len(sys.argv) > 1 else "processed_feeds"
-    output_dir_arg = sys.argv[2] if len(sys.argv) > 2 else "docs"
-    generate_pages(data_dir=data_dir_arg, output_dir=output_dir_arg)
+    print("Running generate_pages as a script...")
+    # Simple command-line argument handling for script usage
+    if len(sys.argv) < 2:
+        print("Usage: python generate_pages.py <data_directory> [output_docs_directory]")
+        sys.exit(1)
+
+    data_directory = sys.argv[1]
+    docs_output_directory = sys.argv[2] if len(sys.argv) > 2 else "docs"
+
+    # Load .env file if present for environment variables
+    from dotenv import load_dotenv
+
+    dotenv_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", ".env"
+    )  # Adjust path as needed
+    load_dotenv(dotenv_path=dotenv_path)
+    print(f"Attempted to load .env from: {os.path.abspath(dotenv_path)}")
+
+    generate_pages(data_dir=data_directory, docs_dir=docs_output_directory)

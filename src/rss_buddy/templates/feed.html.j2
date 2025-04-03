@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Feed: {{ feed_data.title|escape }}{% endblock %}
+
+{% block content %}
+    <a href="index.html" class="back-link">← Back to all feeds</a>
+    <h1>{{ feed_data.title|escape }}</h1>
+    <div class="feed-description">
+        <small>Original Feed URL: <a href="{{ feed_data.url|escape }}">{{ feed_data.url|escape }}</a></small><br>
+        <small>Last Updated Item: {{ feed_data.last_updated_display|escape }}</small>
+    </div>
+
+    <div>
+        {# Processed Items Section #}
+        <h3>Processed Articles</h3>
+        {% if feed_data.processed_items %}
+            {% for item in feed_data.processed_items %}
+                <div class="article">
+                    <h2><a href="{{ item.link|escape }}">{{ item.title|escape }}</a></h2>
+                    <div class="article-meta">
+                        Published: {{ item.published_date.strftime('%a, %d %b %Y %H:%M GMT') if item.published_date else 'Date not available' }}
+                        {% if item.processed_date %}
+                            | Processed: {{ item.processed_date.strftime('%Y-%m-%d %H:%M GMT') }}
+                        {% endif %}
+                    </div>
+                    <div>{{ item.summary|safe }}</div> {# Assuming summary might contain safe HTML #}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No individually processed articles found in the lookback period.</p>
+        {% endif %}
+
+        {# Digest Section #}
+        {% if feed_data.ai_digest_summary %}
+            <div class="digest">
+                <h2>AI Digest ({{ feed_data.digest_items|length }} items)</h2>
+                 <div class="article-meta">Generated: {{ feed_data.generation_time_display|escape }}</div> {# Re-use generation time here #}
+                <div>{{ feed_data.ai_digest_summary|safe }}</div> {# Assuming AI summary might be HTML #}
+            </div>
+        {% elif feed_data.digest_items %}
+             <div class="digest">
+                <h2>AI Digest ({{ feed_data.digest_items|length }} items)</h2>
+                 <p>Digest summary generation failed or is pending.</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block generation_time %}
+    {{ feed_data.generation_time_display|escape }}
+{% endblock %} 

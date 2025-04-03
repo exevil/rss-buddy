@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}RSS Buddy Processed Feeds{% endblock %}
+
+{% block content %}
+    <h1>RSS Buddy Processed Feeds</h1>
+    <div class="explanation">
+        <p>These feeds are processed with AI to prioritize content:</p>
+        <ul>
+            <li><strong>Processed articles:</strong> Shown individually on each feed page.</li>
+            <li><strong>Digest articles:</strong> Consolidated into a single digest section (highlighted in blue) by AI on each feed page.</li>
+        </ul>
+    </div>
+    <p>Select a feed to view:</p>
+    <ul class="index-list">
+        {% for feed in index_data.feeds %}
+            <li>
+                <a href="{{ feed.filename }}">{{ feed.title|escape }}</a>
+                <div class="feed-description">
+                    <small>Original URL: <a href="{{ feed.original_url|escape }}">{{ feed.original_url|escape }}</a></small><br>
+                    <small>Processed: {{ feed.processed_count }} | Digest: {{ feed.digest_count }}</small>
+                </div>
+            </li>
+        {% else %}
+            <li>No feeds have been processed yet.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+
+{% block generation_time %}
+    {{ index_data.generation_time_display|escape }}
+{% endblock %} 
