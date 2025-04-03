@@ -248,20 +248,82 @@ class TestStateManager(unittest.TestCase):
         self.assertIn("last_updated", state_manager.state)
 
     def test_load_state_wrong_feeds_type(self):
-        """Test loading a state file where 'feeds' key has the wrong type."""
-        # Write state file with 'feeds' as a list instead of dict
-        invalid_state = {
-            "feeds": ["not a dict"],
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-        }
+        """Test loading a state file where 'feeds' is not a dictionary."""
+        # Write state file with 'feeds' as a list
+        invalid_state = {"feeds": ["list"], "last_updated": datetime.now(timezone.utc).isoformat()}
         with open(self.state_file, "w") as f:
             json.dump(invalid_state, f)
 
         # Initializing StateManager should handle the error and default
         state_manager = StateManager(output_dir=self.output_dir)
 
-        # Check that the state has the invalid 'feeds' value
-        self.assertEqual(state_manager.state.get("feeds"), ["not a dict"])
+        # Check state defaults correctly
+        self.assertTrue(hasattr(state_manager, "state"))
+        self.assertIsInstance(state_manager.state, dict)
+        self.assertEqual(state_manager.state.get("feeds"), {})  # Should reset to empty dict
+        self.assertIn("last_updated", state_manager.state)
+
+    def test_feed_title_updates(self):
+        """Test that feed titles are added and updated correctly."""
+        state_manager = StateManager(output_dir=self.output_dir)
+        feed_url_1 = "http://test.com/feed1"
+        feed_url_2 = "http://test.com/feed2"
+        feed_url_3 = "http://test.com/feed3"
+        entry_id_1 = "entry1"
+        entry_id_2 = "entry2"
+        entry_data = {"date": "2024-01-01T00:00:00Z"}  # Dummy data
+
+        # Scenario 1: No title -> Valid title
+        state_manager.add_processed_entry(
+            feed_url_1, entry_id_1, "processed", entry_data, feed_title=None
+        )
+        self.assertIsNone(
+            state_manager.get_feed_title(feed_url_1), "Scenario 1a: Title should initially be None"
+        )
+        state_manager.add_processed_entry(
+            feed_url_1, entry_id_2, "processed", entry_data, feed_title="Valid Title 1"
+        )
+        self.assertEqual(
+            state_manager.get_feed_title(feed_url_1),
+            "Valid Title 1",
+            "Scenario 1b: Valid title should be added",
+        )
+
+        # Scenario 2: Valid title -> "N/A" title (Should keep valid title)
+        state_manager.add_processed_entry(
+            feed_url_2, entry_id_1, "processed", entry_data, feed_title="Valid Title 2"
+        )
+        self.assertEqual(
+            state_manager.get_feed_title(feed_url_2),
+            "Valid Title 2",
+            "Scenario 2a: Valid title should be set",
+        )
+        state_manager.add_processed_entry(
+            feed_url_2, entry_id_2, "processed", entry_data, feed_title="N/A"
+        )
+        self.assertEqual(
+            state_manager.get_feed_title(feed_url_2),
+            "Valid Title 2",
+            "Scenario 2b: Valid title should be kept over N/A",
+        )
+
+        # Scenario 3: "N/A" title -> Valid title (Should update to valid title)
+        state_manager.add_processed_entry(
+            feed_url_3, entry_id_1, "processed", entry_data, feed_title="N/A"
+        )
+        self.assertEqual(
+            state_manager.get_feed_title(feed_url_3),
+            "N/A",
+            "Scenario 3a: N/A title should be set initially",
+        )
+        state_manager.add_processed_entry(
+            feed_url_3, entry_id_2, "processed", entry_data, feed_title="Valid Title 3"
+        )
+        self.assertEqual(
+            state_manager.get_feed_title(feed_url_3),
+            "Valid Title 3",
+            "Scenario 3b: Valid title should replace N/A",
+        )
 
 
 if __name__ == "__main__":

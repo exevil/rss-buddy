@@ -83,8 +83,14 @@ class StateManager:
                 # and transforming the state has been removed as it's no longer needed.
 
                 # Ensure basic structure exists after loading
-                if "feeds" not in state:
+                if "feeds" not in state or not isinstance(state.get("feeds"), dict):
+                    # If 'feeds' key is missing OR it's not a dictionary, reset it.
+                    if "feeds" in state:
+                        print(
+                            f"Warning: State file {self.state_file} has 'feeds' key but it's not a dictionary. Resetting to empty."
+                        )
                     state["feeds"] = {}
+
                 state["last_updated"] = state.get(
                     "last_updated", datetime.now(timezone.utc).isoformat()
                 )
@@ -199,9 +205,16 @@ class StateManager:
         elif "entry_data" not in self.state["feeds"][feed_url]:
             self.state["feeds"][feed_url]["entry_data"] = {}
 
-        # Store the feed title if provided and not already set
-        if feed_title and not self.state["feeds"][feed_url].get("feed_title"):
+        # Store or update the feed title intelligently
+        existing_title = self.state["feeds"][feed_url].get("feed_title")
+        # Consider a title "good" if it's not the "N/A" fallback from feed_processor
+        is_new_title_good = feed_title and feed_title != "N/A"
+        is_existing_title_good = existing_title and existing_title != "N/A"
+
+        # Update if the new title is good, OR if the existing one is bad/missing
+        if is_new_title_good or not is_existing_title_good:
             self.state["feeds"][feed_url]["feed_title"] = feed_title
+        # Else: keep the existing good title, as the new one is "N/A"
 
         # Ensure basic structure exists for the specific entry
         current_entry = self.state["feeds"][feed_url]["entry_data"].get(entry_id, {})
