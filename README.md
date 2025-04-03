@@ -4,24 +4,24 @@ Help filtering out and summarizing my RSS feeds.
 
 ## Overview
 
-RSS Buddy processes RSS feeds using OpenAI to determine which articles should be shown in full (\"processed\") and which should be consolidated into an AI-generated digest (\"digest\"). It then generates an HTML site for browsing the results, reducing noise while ensuring you don\'t miss important content.
+RSS Buddy processes RSS feeds using OpenAI to determine which articles should be shown in full ("processed") and which should be consolidated into an AI-generated digest ("digest"). It then generates an HTML site for browsing the results, reducing noise while ensuring you don't miss important content.
 
 ## How It Works
 
 1.  Fetches articles from configured RSS feeds within a specified lookback period (`DAYS_LOOKBACK`).
 2.  Checks its internal state (`processed_feeds/processed_state.json`) to see if articles have already been processed.
-3.  For **new** articles, it uses an AI model (e.g., GPT-4) and user-defined criteria (`USER_PREFERENCE_CRITERIA`) to classify them as either `processed` or `digest`.
-4.  Stores the classification, title, link, summary, and original publish date for all processed articles within the lookback period in the state file.
-5.  Generates an HTML site (in the `docs/` directory) for browsing using Jinja2 templates:
+3.  For **new** articles, it uses an AI model (e.g., GPT-4 via `ai_interface.py`) and user-defined criteria (`USER_PREFERENCE_CRITERIA`) to determine the processing preference ('FULL' or 'SUMMARY').
+4.  Maps the AI preference to a `status` ('processed' or 'digest') and stores key article data including a unique ID, title, link, summary, publish date (`date`), processing status (`status`), and processing timestamp (`processed_at`) for all relevant articles in the state file.
+5.  Generates an HTML site (in the `docs/` directory via `generate_pages.py`) for browsing using Jinja2 templates:
     *   An `index.html` page lists all tracked feeds.
     *   Each feed gets its own HTML page (`feed_*.html`).
-    *   On a feed\'s page, `processed` articles are displayed individually.
-    *   All `digest` articles for that feed within the lookback period are passed to the AI to generate a single, consolidated summary which is displayed in a distinct section.
+    *   On a feed's page, `processed` articles are displayed individually.
+    *   All `digest` articles for that feed within the lookback period are passed to the AI (`ai_interface.generate_consolidated_summary`) to generate a single, consolidated summary which is displayed in a distinct section.
 
 ## Features
 
 - Processes multiple RSS feeds.
-- Tracks already processed articles and their classification (`processed`/`digest`) to avoid reprocessing and redundant AI calls.
+- Tracks already processed articles and their processing status (`processed`/`digest`) to avoid reprocessing and redundant AI calls.
 - Uses OpenAI to classify **new** articles based on user criteria.
 - Consolidates less important articles (`digest`) into a single AI-generated summary per feed.
 - Generates a static HTML website (`docs/` directory) for easy browsing and hosting (e.g., GitHub Pages).
@@ -101,7 +101,7 @@ There are three main ways to run RSS Buddy:
     # Requires environment variables to be set (.env file or exported)
     rss-buddy
     ```
-    This command directly uses the `main` function defined as an entry point in `pyproject.toml` and relies on environment variables for configuration.
+    This command executes the main feed processing workflow defined in `src/rss_buddy/main.py`. Note: This typically only processes feeds and updates the state file. HTML generation usually requires a separate step or flag (see below).
 
 2.  **Using `run_rss_buddy.py` with explicit parameters:**
 
@@ -112,7 +112,7 @@ There are three main ways to run RSS Buddy:
     ```
 
     *   `--output-dir`: Specifies where the `processed_state.json` file is stored (defaults to `processed_feeds`).
-    *   `--generate-pages`: If included, runs the HTML generation step after processing feeds. Reads state from `--output-dir` and writes HTML/JSON to the `docs/` directory.
+    *   `--generate-pages`: If included, runs the main feed processing *and then* runs the HTML generation step (`generate_pages.generate_pages`), reading state from `--output-dir` and writing HTML/JSON to the `docs/` directory.
 
 3.  **Using the `rss-buddy.sh` convenience script:**
 
@@ -122,6 +122,7 @@ There are three main ways to run RSS Buddy:
     ```
 
     *   This script reads parameters from environment variables (falling back from command-line args if provided). See script for details.
+    *   Without `--pages`, it likely only runs the feed processing step.
     *   `--pages`: Runs the main processing script and then triggers HTML generation (to `docs/`).
 
 ## Output Format
@@ -150,7 +151,7 @@ The `docs/` directory contains:
 ### Smart State Management & Processing
 
 - Uses AI only for newly discovered articles within the lookback window.
-- Persists article classification (`processed` / `digest`) in the state file (`processed_feeds/processed_state.json` by default).
+- Persists article processing status (`processed` / `digest`) in the state file (`processed_feeds/processed_state.json` by default).
 - Automatically cleans up entries older than `DAYS_LOOKBACK` from the state file on save.
 - Ensures the final HTML output reflects all relevant articles (processed and digest) within the `DAYS_LOOKBACK` period from the run date.
 
@@ -161,12 +162,12 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 ### Project Structure
 
 - `src/rss_buddy/` - Main package
-  - `main.py`: Orchestrates the processing workflow and provides the `rss-buddy` entry point.
-  - `models.py`: Defines core data structures (e.g., `Article`, `FeedDisplayData`).
-  - `feed_processor.py`: Fetches feeds, classifies new items, updates state.
-  - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`).
-  - `ai_interface.py`: Handles interactions with the OpenAI API.
-  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2.
+  - `main.py`: Orchestrates the *feed processing and state saving* workflow. Called by the `rss-buddy` entry point.
+  - `models.py`: Defines core data structures (e.g., `Article`, `FeedDisplayData`). (Key `Article` fields: `id`, `title`, `link`, `summary`, `published_date`, `processed_date`, `status`)
+  - `feed_processor.py`: Fetches feeds, determines status ('processed'/'digest') for new items using `AIInterface`, and instructs `StateManager` to update state.
+  - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`). (State is stored as nested dictionaries: `feeds -> {feed_url} -> entry_data -> {entry_id} -> {article_details}`)
+  - `ai_interface.py`: Handles interactions with the OpenAI API. (Key methods: `evaluate_article_preference`, `generate_consolidated_summary`)
+  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2. (Main function: `generate_pages()`)
   - `templates/`: Contains the Jinja2 HTML templates (`base.html`, `index.html.j2`, `feed.html.j2`).
 - `processed_feeds/` - Default directory for storing `processed_state.json`.
 - `docs/` - Default output directory for the generated HTML site.
@@ -182,7 +183,7 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 python run_tests.py [-v] [--skip-lint] [--lint-only] [--lint-paths PATH1 PATH2...]
 ```
 
-The test suite covers state management, AI interface, feed processing, and date handling without requiring an actual OpenAI API key.
+The test suite includes unit tests covering individual components (state management, AI interface, feed processing, date handling, etc.) and integration tests (`tests/test_integration.py`) verifying the core workflows (State I/O, Feed Processing -> State Update, State -> HTML Generation) using mocked external dependencies (AI, network).
 
 By default, running tests will also run the linter. Use the `--skip-lint` option to skip linting, or `--lint-only` to run only the linter.
 

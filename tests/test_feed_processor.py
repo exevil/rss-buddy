@@ -93,17 +93,6 @@ class TestFeedProcessor(unittest.TestCase):
 
             self.assertIsNone(result)
 
-    def test_evaluate_article_preference(self):
-        """Test the article preference evaluation."""
-        self.ai_interface.evaluate_article_preference.return_value = "FULL"
-
-        result = self.processor.evaluate_article_preference(
-            title="Test Title", summary="Test Summary", feed_url="https://example.com/feed.xml"
-        )
-
-        self.assertEqual(result, "processed")
-        self.ai_interface.evaluate_article_preference.assert_called_once()
-
     def test_process_feed_new_entry(self):
         """Test processing a feed with a new entry."""
         # Mock feed data

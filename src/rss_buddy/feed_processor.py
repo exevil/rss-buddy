@@ -195,27 +195,6 @@ class FeedProcessor:
             published_date >= cutoff
         )  # Use >= to include items published exactly on the cutoff day
 
-    def evaluate_article_preference(
-        self, title: str, summary: str, feed_url: Optional[str] = None
-    ) -> str:
-        """Evaluate if an article should be processed or put in digest.
-
-        Args:
-            title: The article title.
-            summary: The article summary or description.
-            feed_url: The URL of the feed (for context).
-
-        Returns:
-            str: "processed" or "digest" preference.
-        """
-        # This now directly returns 'processed' or 'digest' based on AI eval
-        # Assuming AIInterface returns "FULL" or "SUMMARY"
-        preference = self.ai_interface.evaluate_article_preference(
-            title=title, summary=summary, criteria=self.user_preference_criteria, feed_url=feed_url
-        )
-        # Map AI result to our status terms
-        return "processed" if preference == "FULL" else "digest"
-
     def process_feed(self, feed_url: str) -> Tuple[int, int]:
         """Process a single feed: fetch entries, classify new ones, update state.
 
@@ -268,11 +247,17 @@ class FeedProcessor:
             summary = entry.get("summary", entry.get("description", ""))
             link = entry.get("link", "")
 
-            # Call AI for classification
+            # Call AI for classification directly using the ai_interface instance
             try:
-                status = self.evaluate_article_preference(
-                    title=title, summary=summary, feed_url=feed_url
+                # Use self.ai_interface directly
+                preference = self.ai_interface.evaluate_article_preference(
+                    title=title,
+                    summary=summary,
+                    criteria=self.user_preference_criteria,  # Use criteria from instance
+                    feed_url=feed_url,
                 )
+                # Map result to status
+                status = "processed" if preference == "FULL" else "digest"
             except Exception as e:
                 print(
                     f"      Error evaluating preference for '{entry_title}': {e}. Skipping entry."
