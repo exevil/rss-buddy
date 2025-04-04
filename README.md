@@ -169,12 +169,15 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
   - `ai_interface.py`: Handles interactions with the OpenAI API. (Key methods: `evaluate_article_preference`, `generate_consolidated_summary`)
   - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2. (Main function: `generate_pages()`)
   - `templates/`: Contains the Jinja2 HTML templates (`base.html`, `index.html.j2`, `feed.html.j2`).
-- `processed_feeds/` - Default directory for storing `processed_state.json`.
-- `docs/` - Default output directory for the generated HTML site.
+- `tests/` - Contains all unit and integration tests.
+  - `fixtures/` - Contains test data files (e.g., mock XML feeds, expected HTML outputs).
+- `processed_feeds/` - Default directory for storing `processed_state.json` (ignored by git).
+- `docs/` - Default output directory for the generated HTML site (mostly ignored by git, used for GitHub Pages).
 - `pyproject.toml`: Defines project metadata, dependencies, build system, and tool configurations (like Ruff).
-- `run_rss_buddy.py`: Legacy command-line runner script (might still be useful for specific parameter passing).
-- `run_tests.py`: Test suite runner.
-- `rss-buddy.sh`: Convenience shell script for execution using environment variables.
+- `run_rss_buddy.py`: Legacy command-line runner script.
+- `run_tests.py`: Core test suite runner script (used by `test.sh`).
+- `test.sh`: Recommended script for running tests locally in an isolated environment.
+- `rss-buddy.sh`: Convenience shell script for running the main application using environment variables.
 - `lint.py`: Linting script (wraps Ruff commands).
 
 ### Running Tests

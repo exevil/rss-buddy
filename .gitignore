@@ -32,10 +32,6 @@ docs/*
 !docs/.nojekyll
 !docs/CNAME
 
-# Test Output
-test_output/
-.coverage
-
 # IDE / Editor specific
 .idea/
 .vscode/
