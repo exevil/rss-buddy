@@ -179,19 +179,36 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 
 ### Running Tests
 
+To run the test suite in an isolated environment similar to CI, use the `test.sh` script. This script automatically creates a temporary virtual environment, installs dependencies (including development dependencies), runs the tests using `run_tests.py`, and then cleans up the environment.
+
 ```bash
-python run_tests.py [-v] [--skip-lint] [--lint-only] [--lint-paths PATH1 PATH2...]
+# Make the script executable (only needed once)
+chmod +x test.sh
+
+# Run the tests
+./test.sh
+
+# Run with verbose output (or other flags accepted by run_tests.py)
+./test.sh -v
 ```
 
-The test suite includes unit tests covering individual components (state management, AI interface, feed processing, date handling, etc.) and integration tests (`tests/test_integration.py`) verifying the core workflows (State I/O, Feed Processing -> State Update, State -> HTML Generation) using mocked external dependencies (AI, network).
+The underlying `run_tests.py` script uses the standard Python `unittest` framework. By default, it also runs the linter (`ruff`). You can pass flags like `--skip-lint` or `--lint-only` to `test.sh`, and they will be forwarded to `run_tests.py`:
 
-By default, running tests will also run the linter. Use the `--skip-lint` option to skip linting, or `--lint-only` to run only the linter.
+```bash
+# Skip linting during tests
+./test.sh --skip-lint
+
+# Run only the linter
+./test.sh --lint-only
+```
 
 ### Linting and Formatting
 
 The project uses Ruff for fast linting and code formatting.
 
-Linting and formatting are automatically run when executing tests using `python run_tests.py`, but you can also run them separately using the `lint.py` script:
+Linting and formatting are automatically checked when running tests via `./test.sh` (unless `--skip-lint` is used).
+
+You can also run the formatter and linter (with auto-fix) independently using the `lint.py` script:
 
 ```bash
 python lint.py [--paths PATH1 PATH2...]
@@ -199,15 +216,15 @@ python lint.py [--paths PATH1 PATH2...]
 
 This script will first format the specified files using `ruff format` and then lint them using `ruff check --fix`.
 
-Alternatively, you can run only the linter via the test script:
+Alternatively, you can run *only* the linter via the test script wrapper:
 
 ```bash
-python run_tests.py --lint-only [--lint-paths PATH1 PATH2...]
+./test.sh --lint-only [--lint-paths PATH1 PATH2...]
 ```
 
 Ruff settings are configured in `pyproject.toml`.
 
-The linter/formatter and tests are automatically run on GitHub via CI workflows (`.github/workflows/tests.yml`).
+The linter/formatter and tests are automatically run on GitHub via CI workflows (`.github/workflows/tests.yml`), which also uses the `test.sh` script.
 
 ## GitHub Pages Integration
 

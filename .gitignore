@@ -23,3 +23,24 @@ docs/
 .DS_Store 
 /test_html
 /test_output
+
+# State files
+processed_feeds/*.json
+
+# Generated documentation (except GitHub Pages marker)
+docs/*
+!docs/.nojekyll
+!docs/CNAME
+
+# Test Output
+test_output/
+.coverage
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary test environments
+.test_venv_*
