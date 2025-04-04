@@ -42,7 +42,8 @@ Repository = "https://github.com/example/rss-buddy"
 [project.optional-dependencies]
 dev = [
     "ruff",
-    # Add other dev tools like pytest, black, mypy here if needed
+    "pytest",
+    "beautifulsoup4",
 ]
 
 [tool.setuptools.dynamic]

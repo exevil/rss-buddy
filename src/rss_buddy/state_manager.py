@@ -6,68 +6,35 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from dateutil import parser
+from .interfaces.protocols import StateManagerProtocol
+from .utils.date_parser import DateParserProtocol
 
 
-class StateManager:
+class StateManager(StateManagerProtocol):
     """Manages the state of processed articles to avoid reprocessing and enable lookback."""
 
-    def __init__(self, state_file: Optional[str] = None, output_dir: str = "processed_feeds"):
+    def __init__(
+        self,
+        date_parser: DateParserProtocol,
+        state_file: Optional[str] = None,
+        output_dir: str = "processed_feeds",
+    ):
         """Initialize the state manager.
 
         Args:
+            date_parser: DateParser instance for parsing dates.
             state_file: Path to the state file. If None, uses output_dir/processed_state.json.
             output_dir: Directory where processed feeds and state are stored.
         """
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.state_file = state_file or os.path.join(self.output_dir, "processed_state.json")
+        self.date_parser = date_parser
         self.state = self._load_state()
 
     def parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
-        """Parse a date string into a timezone-aware datetime object (UTC)."""
-        if not date_str:
-            return None
-        try:
-            # Common problematic timezone abbreviations and their approximate UTC offsets
-            timezone_replacements = {
-                "PDT": "-0700",
-                "PST": "-0800",
-                "EDT": "-0400",
-                "EST": "-0500",
-                "CEST": "+0200",
-                "CET": "+0100",
-                "AEST": "+1000",
-                "AEDT": "+1100",
-            }
-
-            def tzinfos(tzname, _offset):
-                return timezone_replacements.get(tzname)
-
-            # Normalize timezone abbreviations before parsing
-            normalized_date_str = date_str
-            for tz, offset in timezone_replacements.items():
-                if tz in normalized_date_str:
-                    normalized_date_str = normalized_date_str.replace(tz, offset)
-                    break  # Replace only the first occurrence
-
-            parsed_date = parser.parse(normalized_date_str, tzinfos=tzinfos)
-
-            # Ensure the date is timezone-aware, defaulting to UTC
-            if parsed_date.tzinfo is None:
-                # Try ignoretz=True as a fallback before assuming UTC
-                try:
-                    parsed_date_ignoretz = parser.parse(date_str, ignoretz=True)
-                    parsed_date = parsed_date_ignoretz.replace(tzinfo=timezone.utc)
-                except Exception:
-                    # If ignoretz also fails, assume UTC for the original parsed date
-                    parsed_date = parsed_date.replace(tzinfo=timezone.utc)
-
-            # Convert aware datetimes to UTC
-            return parsed_date.astimezone(timezone.utc)
-        except Exception as e:
-            print(f"Failed to parse date '{date_str}': {e}")
-            return None  # Indicate parsing failure
+        """Parse a date string using the configured date parser."""
+        return self.date_parser.parse_date(date_str)
 
     def _load_state(self) -> Dict[str, Any]:
         """Load the state from the state file or create a new state."""
@@ -271,6 +238,10 @@ class StateManager:
         return items_in_period
 
     def get_feed_title(self, feed_url: str) -> Optional[str]:
-        """Retrieve the stored title for a given feed URL."""
+        """Get the stored title for a specific feed."""
         feed_state = self.state.get("feeds", {}).get(feed_url, {})
         return feed_state.get("feed_title")
+
+    def get_state_file_path(self) -> str:
+        """Return the path to the state file being managed."""
+        return self.state_file

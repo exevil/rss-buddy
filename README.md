@@ -162,19 +162,22 @@ This optimizes AI usage while maintaining a comprehensive and up-to-date view of
 ### Project Structure
 
 - `src/rss_buddy/` - Main package
-  - `main.py`: Orchestrates the *feed processing and state saving* workflow. Called by the `rss-buddy` entry point.
-  - `models.py`: Defines core data structures (e.g., `Article`, `FeedDisplayData`). (Key `Article` fields: `id`, `title`, `link`, `summary`, `published_date`, `processed_date`, `status`)
-  - `feed_processor.py`: Fetches feeds, determines status ('processed'/'digest') for new items using `AIInterface`, and instructs `StateManager` to update state.
-  - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`). (State is stored as nested dictionaries: `feeds -> {feed_url} -> entry_data -> {entry_id} -> {article_details}`)
-  - `ai_interface.py`: Handles interactions with the OpenAI API. (Key methods: `evaluate_article_preference`, `generate_consolidated_summary`)
-  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2. (Main function: `generate_pages()`)
+  - `main.py`: Contains the main entry point (`main`) which loads configuration via `RssBuddyConfig.from_environment()` and calls `run_feed_processing`. Also contains `run_feed_processing(config)` which orchestrates the feed processing workflow.
+  - `config.py`: Defines the `RssBuddyConfig` dataclass and helper functions (`get_env_*`) to load configuration from environment variables.
+  - `models.py`: Defines core data structures (e.g., `Article`, `FeedDisplayData`, `IndexDisplayData`).
+  - `feed_processor.py`: Fetches feeds, determines status ('processed'/'digest') for new items using `AIInterface`, and instructs `StateManager` to update state. Accepts dependencies via constructor.
+  - `state_manager.py`: Manages loading, saving, and querying the processing state (`processed_state.json`). Accepts dependencies via constructor.
+  - `ai_interface.py`: Handles interactions with the OpenAI API. Includes `MockAIInterface` for testing. Accepts API key/model via constructor.
+  - `generate_pages.py`: Generates the static HTML site (`docs/`) from the state using Jinja2. Accepts `RssBuddyConfig` and component instances (`StateManager`, `AIInterface`) via its main `generate_pages()` function.
+  - `utils/`: Utility modules (e.g., `date_parser.py` for robust date handling).
+  - `interfaces/`: Defines `Protocol` classes for dependency injection and mocking (e.g., `StateManagerProtocol`).
   - `templates/`: Contains the Jinja2 HTML templates (`base.html`, `index.html.j2`, `feed.html.j2`).
 - `tests/` - Contains all unit and integration tests.
-  - `fixtures/` - Contains test data files (e.g., mock XML feeds, expected HTML outputs).
+  - `fixtures/` - Contains test data files (e.g., mock XML feeds, state files).
 - `processed_feeds/` - Default directory for storing `processed_state.json` (ignored by git).
 - `docs/` - Default output directory for the generated HTML site (mostly ignored by git, used for GitHub Pages).
-- `pyproject.toml`: Defines project metadata, dependencies, build system, and tool configurations (like Ruff).
-- `run_rss_buddy.py`: Legacy command-line runner script.
+- `pyproject.toml`: Defines project metadata, dependencies (`beautifulsoup4` added for tests), build system, and tool configurations (like Ruff).
+- `run_rss_buddy.py`: Command-line runner script. Reads arguments, loads environment variables (e.g., from `.env`), sets them, and calls the core `rss_buddy_main` and optionally `generate_pages`.
 - `run_tests.py`: Core test suite runner script (used by `test.sh`).
 - `test.sh`: Recommended script for running tests locally in an isolated environment.
 - `rss-buddy.sh`: Convenience shell script for running the main application using environment variables.

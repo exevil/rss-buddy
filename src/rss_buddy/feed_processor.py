@@ -2,15 +2,16 @@
 
 import datetime
 import hashlib
-import re
 from datetime import timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import feedparser
-from dateutil import parser
 
-from .ai_interface import AIInterface
-from .state_manager import StateManager
+from .interfaces.protocols import (
+    AIInterfaceProtocol,
+    StateManagerProtocol,
+)
+from .utils.date_parser import DateParserProtocol
 
 
 class FeedProcessor:
@@ -18,8 +19,9 @@ class FeedProcessor:
 
     def __init__(
         self,
-        state_manager: StateManager,
-        ai_interface: AIInterface,
+        state_manager: StateManagerProtocol,
+        ai_interface: AIInterfaceProtocol,
+        date_parser: DateParserProtocol,
         days_lookback: int = 7,
         user_preference_criteria: str = "",
         summary_max_tokens: int = 150,
@@ -29,6 +31,7 @@ class FeedProcessor:
         Args:
             state_manager: StateManager instance to track processed articles
             ai_interface: AIInterface instance for article evaluation
+            date_parser: DateParser instance for parsing dates
             days_lookback: Number of days to look back for articles
             user_preference_criteria: Criteria for article preference evaluation
             summary_max_tokens: Maximum tokens for AI summaries (if used by AIInterface)
@@ -40,6 +43,7 @@ class FeedProcessor:
         # Use provided instances directly
         self.state_manager = state_manager
         self.ai_interface = ai_interface
+        self.date_parser = date_parser
 
     def generate_entry_id(self, entry: Dict[str, Any]) -> str:
         """Generate a unique ID for an entry based on its link, guid, or title/summary hash."""
@@ -76,124 +80,19 @@ class FeedProcessor:
             print(f"    Error fetching or parsing feed {url}: {e}")
             return None
 
-    def _parse_date(self, entry_date_str: Optional[str]) -> Optional[datetime.datetime]:
-        """Parse a date string into a timezone-aware datetime object (UTC)."""
-        if not entry_date_str:
-            return None
-
-        # Common problematic timezone abbreviations and their approximate UTC offsets
-        timezone_replacements = {
-            "PDT": "-0700",
-            "PST": "-0800",
-            "EDT": "-0400",
-            "EST": "-0500",
-            "CEST": "+0200",
-            "CET": "+0100",
-            "AEST": "+1000",
-            "AEDT": "+1100",
-            # Add GMT/UTC explicitly, though parser usually handles them
-            "GMT": "+0000",
-            "UTC": "+0000",
-        }
-
-        def tzinfos(tzname, _offset):
-            # Let parser handle standard offsets first if possible
-            return timezone_replacements.get(tzname)
-
-        parsed_date = None
-
-        # Attempt 1: Standard parsing (might handle GMT, +0000 etc.)
-        try:
-            parsed_date = parser.parse(entry_date_str)
-        except Exception:
-            pass  # Ignore failure, try next method
-
-        # Attempt 2: Try parsing ignoring timezone info (common fallback)
-        if parsed_date is None:
-            try:
-                # This might succeed where standard parsing fails due to odd TZ
-                parsed_date = parser.parse(entry_date_str, ignoretz=True)
-            except Exception:
-                pass  # Ignore failure, try next method
-
-        # Attempt 3: Normalize known timezone strings (PDT, EST etc.) and parse
-        if parsed_date is None:
-            try:
-                normalized_date_str = entry_date_str
-                for tz, offset in timezone_replacements.items():
-                    # Use regex to replace tz only if it's a standalone word
-                    # Prevents replacing 'EST' in 'TEST'
-                    # Consider case-insensitivity? parser might handle it.
-                    pattern = r"\b" + re.escape(tz) + r"\b"
-                    if re.search(pattern, normalized_date_str):
-                        normalized_date_str = re.sub(pattern, offset, normalized_date_str)
-                        # Don't break, might have multiple (though unlikely)
-
-                # If normalization occurred, try parsing with tzinfos
-                if normalized_date_str != entry_date_str:
-                    parsed_date = parser.parse(normalized_date_str, tzinfos=tzinfos)
-                else:  # If no normalization, try standard parse with tzinfos as fallback
-                    parsed_date = parser.parse(entry_date_str, tzinfos=tzinfos)
-
-            except Exception:
-                pass  # Ignore failure, try next method
-
-        # Attempt 4: Try fuzzy parsing as a last resort
-        if parsed_date is None:
-            try:
-                # Fuzzy parsing tries to find date/time within a larger string
-                parsed_date = parser.parse(entry_date_str, fuzzy=True)
-            except Exception:
-                pass  # All parsing attempts failed
-
-        # Attempt 5: Simplified Regex fallback for YYYY-MM-DD HH:MM:SS or DD/MM/YYYY HH:MM:SS
-        if parsed_date is None:
-            try:
-                # Try YYYY-MM-DD HH:MM:SS format
-                match = re.search(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})", entry_date_str)
-                if match:
-                    date_part, time_part = match.groups()
-                    parsed_date = parser.parse(f"{date_part} {time_part}")
-                else:
-                    # Try DD/MM/YYYY HH:MM:SS format
-                    match = re.search(r"(\d{2}/\d{2}/\d{4})[ T](\d{2}:\d{2}:\d{2})", entry_date_str)
-                    if match:
-                        date_part, time_part = match.groups()
-                        # Need dayfirst=True for DD/MM/YYYY
-                        parsed_date = parser.parse(f"{date_part} {time_part}", dayfirst=True)
-            except Exception:
-                pass  # Regex fallback failed
-
-        # Final check and timezone handling
-        if parsed_date is not None:
-            try:
-                # If parsed date is naive, assume UTC
-                if parsed_date.tzinfo is None:
-                    parsed_date = parsed_date.replace(tzinfo=timezone.utc)
-                # Convert any aware datetime to UTC
-                return parsed_date.astimezone(timezone.utc)
-            except Exception as e:
-                print(f"    Warning: Error converting parsed date '{parsed_date}' to UTC: {e}")
-                return None  # Failed during timezone conversion
-
-        # All attempts failed
-        # print(f"    Warning: Could not parse date: '{entry_date_str}'. All attempts failed.")
-        return None
-
     def is_recent(self, entry_date_str: Optional[str]) -> bool:
         """Check if an entry date is within the lookback period."""
         if not entry_date_str:
             return False
 
-        published_date = self._parse_date(entry_date_str)
+        # Use the injected date parser
+        published_date = self.date_parser.parse_date(entry_date_str)
         if published_date is None:
-            # print(f"    Could not parse date '{entry_date_str}', cannot determine recency.") # Reduced verbosity
-            return False  # Cannot determine recency if date is unparseable
+            # print(f"    Could not parse date '{entry_date_str}', cannot determine recency.")
+            return False
 
         cutoff = datetime.datetime.now(timezone.utc) - timedelta(days=self.days_lookback)
-        return (
-            published_date >= cutoff
-        )  # Use >= to include items published exactly on the cutoff day
+        return published_date >= cutoff
 
     def process_feed(self, feed_url: str) -> Tuple[int, int]:
         """Process a single feed: fetch entries, classify new ones, update state.

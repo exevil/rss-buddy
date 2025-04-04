@@ -9,8 +9,10 @@ try:
 except ImportError:
     OpenAI = None
 
+from .interfaces.protocols import AIInterfaceProtocol
 
-class AIInterface:
+
+class AIInterface(AIInterfaceProtocol):
     """Interface for AI operations, provides methods for article evaluation and summary generation.
 
     This class provides a standardized way to interact with OpenAI APIs.
@@ -138,7 +140,7 @@ class AIInterface:
             return None
 
 
-class MockAIInterface(AIInterface):
+class MockAIInterface(AIInterfaceProtocol):
     """Mock implementation of the AI interface for testing."""
 
     def __init__(

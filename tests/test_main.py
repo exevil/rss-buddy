@@ -1,4 +1,4 @@
-"""Tests for the main execution script."""
+"""Tests for the main execution logic (run_feed_processing)."""
 
 import os
 import sys
@@ -8,43 +8,39 @@ from unittest.mock import MagicMock, patch
 # Add src directory to path to allow importing the package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-# Import the main function we want to test
-from rss_buddy.main import main as rss_buddy_main
+# Import the function we want to test
+# Import the config class to create test instances
+from rss_buddy.config import RssBuddyConfig
+from rss_buddy.main import run_feed_processing
 
 
-class TestMainExecution(unittest.TestCase):
-    """Test the main function execution and component initialization."""
+class TestRunFeedProcessing(unittest.TestCase):
+    """Test the run_feed_processing function and component initialization."""
 
     @patch("rss_buddy.main.StateManager")
     @patch("rss_buddy.main.AIInterface")
     @patch("rss_buddy.main.FeedProcessor")
-    @patch("rss_buddy.main.get_env_list")
-    @patch("rss_buddy.main.get_env_str")
-    @patch("rss_buddy.main.get_env_int")
-    @patch("rss_buddy.main.os.environ.get")  # Mock os.environ.get for OUTPUT_DIR
-    def test_main_initializes_feed_processor_correctly(
+    @patch("rss_buddy.main.RobustDateParser")  # Mock date parser if needed, though often not
+    def test_run_feed_processing_initializes_components_correctly(
         self,
-        mock_os_environ_get,
-        mock_get_env_int,
-        mock_get_env_str,
-        mock_get_env_list,
+        mock_date_parser,
         mock_feed_processor,
         mock_ai_interface,
         mock_state_manager,
     ):
-        """Verify main() initializes FeedProcessor without output_dir."""
-        # --- Setup Mocks ---
-        # Mock environment variable functions to return dummy values
-        mock_get_env_list.return_value = ["http://test.feed/rss"]
-        mock_get_env_str.side_effect = (
-            lambda key: f"dummy_{key}"
-        )  # Return dummy string based on key
-        mock_get_env_int.return_value = 1  # Return dummy int
-        # Mock os.environ.get specifically for OUTPUT_DIR
-        # The first call is for OUTPUT_DIR, return a dummy value
-        # Subsequent calls (if any) can return None or raise errors if unexpected
-        mock_os_environ_get.return_value = "dummy_output_dir"
+        """Verify run_feed_processing initializes components correctly based on config."""
+        # --- Setup Test Config --- #
+        test_config = RssBuddyConfig(
+            openai_api_key="test_key_123",
+            rss_feeds=["http://test.feed/rss", "http://another.feed/rss"],
+            user_preference_criteria="Test Criteria Here",
+            days_lookback=5,
+            ai_model="test-ai-model",
+            summary_max_tokens=120,
+            output_dir="test_output_dir",
+        )
 
+        # --- Setup Mocks --- #
         # Mock the instances returned by the classes
         mock_state_manager_instance = MagicMock()
         mock_state_manager.return_value = mock_state_manager_instance
@@ -53,45 +49,44 @@ class TestMainExecution(unittest.TestCase):
         mock_ai_interface.return_value = mock_ai_interface_instance
 
         mock_feed_processor_instance = MagicMock()
-        mock_feed_processor_instance.process_feeds.return_value = []  # Mock process_feeds
+        # Mock the process_feeds method on the instance
+        mock_feed_processor_instance.process_feeds.return_value = []
         mock_feed_processor.return_value = mock_feed_processor_instance
 
-        # --- Run Test ---
-        # Call the main function
-        return_code = rss_buddy_main()
+        mock_date_parser_instance = MagicMock()
+        mock_date_parser.return_value = mock_date_parser_instance
 
-        # --- Assertions ---
-        self.assertEqual(return_code, 0)  # Expect success
+        # --- Run Test --- #
+        # Call the function with the test config
+        run_feed_processing(config=test_config)
 
-        # Check StateManager initialization
-        mock_state_manager.assert_called_once_with(output_dir="dummy_output_dir")
+        # --- Assertions --- #
 
-        # Check AIInterface initialization
-        mock_ai_interface.assert_called_once()
-        # Get the keyword args passed to AIInterface constructor
-        ai_kwargs = mock_ai_interface.call_args.kwargs
-        self.assertEqual(ai_kwargs.get("api_key"), "dummy_OPENAI_API_KEY")
-        self.assertEqual(ai_kwargs.get("model"), "dummy_AI_MODEL")
+        # Check DateParser initialization (usually not mocked, but if needed)
+        mock_date_parser.assert_called_once()
 
-        # Check FeedProcessor initialization
-        mock_feed_processor.assert_called_once()
-        # Get keyword args passed to FeedProcessor constructor
-        fp_kwargs = mock_feed_processor.call_args.kwargs
-
-        # Assert that 'output_dir' is NOT in the keyword arguments
-        self.assertNotIn("output_dir", fp_kwargs)
-
-        # Assert that the expected arguments *are* present
-        self.assertEqual(fp_kwargs.get("state_manager"), mock_state_manager_instance)
-        self.assertEqual(fp_kwargs.get("ai_interface"), mock_ai_interface_instance)
-        self.assertEqual(fp_kwargs.get("days_lookback"), 1)  # From mock_get_env_int
-        self.assertEqual(
-            fp_kwargs.get("user_preference_criteria"), "dummy_USER_PREFERENCE_CRITERIA"
+        # Check StateManager initialization with values from config
+        mock_state_manager.assert_called_once_with(
+            date_parser=mock_date_parser_instance, output_dir=test_config.output_dir
         )
-        self.assertEqual(fp_kwargs.get("summary_max_tokens"), 1)  # From mock_get_env_int
 
-        # Check that process_feeds was called
-        mock_feed_processor_instance.process_feeds.assert_called_once_with(["http://test.feed/rss"])
+        # Check AIInterface initialization with values from config
+        mock_ai_interface.assert_called_once_with(
+            api_key=test_config.openai_api_key, model=test_config.ai_model
+        )
+
+        # Check FeedProcessor initialization with values from config
+        mock_feed_processor.assert_called_once_with(
+            state_manager=mock_state_manager_instance,
+            ai_interface=mock_ai_interface_instance,
+            date_parser=mock_date_parser_instance,
+            days_lookback=test_config.days_lookback,
+            user_preference_criteria=test_config.user_preference_criteria,
+            summary_max_tokens=test_config.summary_max_tokens,
+        )
+
+        # Check that process_feeds was called with feeds from config
+        mock_feed_processor_instance.process_feeds.assert_called_once_with(test_config.rss_feeds)
 
 
 if __name__ == "__main__":

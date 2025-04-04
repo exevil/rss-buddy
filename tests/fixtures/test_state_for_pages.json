@@ -1,0 +1,37 @@
+{
+  "feeds": {
+    "https://unique-feed.com/rss": {
+      "feed_title": "My Awesome Feed! (Special Chars /\\\\?)",
+      "entry_data": {
+        "item1": {
+          "id": "item1",
+          "title": "Recent Processed Item",
+          "link": "http://l.co/1",
+          "summary": "Summary 1",
+          "date": "2024-04-01T10:00:00Z", 
+          "processed_at": "2024-04-02T12:00:00Z",
+          "status": "processed"
+        },
+        "item2": {
+          "id": "item2",
+          "title": "Recent Digest Item",
+          "link": "http://l.co/2",
+          "summary": "Summary 2",
+          "date": "2024-03-30T10:00:00Z", 
+          "processed_at": "2024-04-02T12:01:00Z",
+          "status": "digest"
+        },
+        "item_old": {
+          "id": "item_old",
+          "title": "Old Processed Item",
+          "link": "http://l.co/old",
+          "summary": "Summary Old",
+          "date": "2024-01-15T10:00:00Z",
+          "processed_at": "2024-01-16T12:00:00Z",
+          "status": "processed"
+        }
+      }
+    }
+  },
+  "last_updated": "2024-04-02T12:01:00Z"
+} 

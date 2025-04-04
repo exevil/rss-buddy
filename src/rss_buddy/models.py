@@ -46,4 +46,7 @@ class IndexDisplayData:
     """Data required to render the main index.html page."""
 
     feeds: List[IndexFeedInfo] = field(default_factory=list)
+    total_feeds: int = 0
+    total_processed: int = 0
+    total_digest: int = 0
     generation_time_display: str = ""  # Display-friendly generation timestamp

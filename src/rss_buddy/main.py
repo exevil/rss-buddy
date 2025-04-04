@@ -1,95 +1,61 @@
 #!/usr/bin/env python3
 """Main script for RSS Buddy, handles configuration and executes the feed processor."""
 
-import os
 import sys
-from typing import List
-
-from dotenv import load_dotenv
 
 from .ai_interface import AIInterface
+from .config import RssBuddyConfig  # Import the config class
 from .feed_processor import FeedProcessor
 from .state_manager import StateManager
+from .utils.date_parser import RobustDateParser
 
 
-def get_env_list(var_name: str) -> List[str]:
-    """Get a list from environment variable, separated by newlines or commas."""
-    value = os.environ.get(var_name)
-    if not value:
-        print(f"Error: {var_name} environment variable not found.")
-        sys.exit(1)
-
-    # Check if value contains newlines
-    if "\n" in value:
-        # Split by newlines and filter out empty items
-        result = [item.strip() for item in value.split("\n") if item.strip()]
-    else:
-        # Split by commas (alternative format)
-        result = [item.strip() for item in value.split(",") if item.strip()]
-
-    if not result:
-        print(f"Error: {var_name} environment variable is empty.")
-        sys.exit(1)
-
-    return result
-
-
-def get_env_int(var_name: str) -> int:
-    """Get an integer from environment variable."""
-    value = os.environ.get(var_name)
-    if not value:
-        print(f"Error: {var_name} environment variable not found.")
-        sys.exit(1)
-    try:
-        return int(value)
-    except ValueError:
-        print(f"Error: Could not parse {var_name} as integer. Please provide a valid number.")
-        sys.exit(1)
-
-
-def get_env_str(var_name: str) -> str:
-    """Get a string from environment variable."""
-    value = os.environ.get(var_name)
-    if not value:
-        print(f"Error: {var_name} environment variable not found.")
-        sys.exit(1)
-    return value
-
-
-def main():
-    """Execute the RSS Buddy process based on environment configuration."""
-    # Load environment variables from .env file if it exists
-    load_dotenv()
-
-    # Get required configuration from environment variables
-    rss_feeds = get_env_list("RSS_FEEDS")
-    user_preference_criteria = get_env_str("USER_PREFERENCE_CRITERIA")
-    days_lookback = get_env_int("DAYS_LOOKBACK")
-    ai_model = get_env_str("AI_MODEL")
-    summary_max_tokens = get_env_int("SUMMARY_MAX_TOKENS")
-    openai_api_key = get_env_str("OPENAI_API_KEY")
-
-    # Get output directory (optional with default)
-    output_dir = os.environ.get("OUTPUT_DIR", "processed_feeds")
-
+def run_feed_processing(config: RssBuddyConfig):
+    """Execute the RSS Buddy feed processing based on provided configuration."""
     # Initialize components
-    state_manager = StateManager(output_dir=output_dir)
-    ai_interface = AIInterface(api_key=openai_api_key, model=ai_model)
+    date_parser = RobustDateParser()
+    # Use output_dir from config
+    state_manager = StateManager(date_parser=date_parser, output_dir=config.output_dir)
+    # Use API key and model from config
+    ai_interface = AIInterface(api_key=config.openai_api_key, model=config.ai_model)
 
-    # Initialize feed processor
+    # Initialize feed processor using config values
     feed_processor = FeedProcessor(
         state_manager=state_manager,
         ai_interface=ai_interface,
-        days_lookback=days_lookback,
-        user_preference_criteria=user_preference_criteria,
-        summary_max_tokens=summary_max_tokens,
+        date_parser=date_parser,
+        days_lookback=config.days_lookback,
+        user_preference_criteria=config.user_preference_criteria,
+        summary_max_tokens=config.summary_max_tokens,
     )
 
-    # Process feeds
-    print(f"RSS Buddy is processing {len(rss_feeds)} feeds...")
-    _processed_files = feed_processor.process_feeds(rss_feeds)
+    # Process feeds from config
+    print(f"RSS Buddy is processing {len(config.rss_feeds)} feeds...")
+    feed_processor.process_feeds(config.rss_feeds)
+    print("Feed processing complete.")
 
-    return 0
+    # Note: This function no longer returns an exit code directly.
+    # The caller (main entry point) should handle exit codes.
+
+
+def main():
+    """Main entry point: Load config and run processing."""
+    # Load configuration from environment
+    # The dotenv loading is assumed to happen *before* this script is called,
+    # typically handled by the execution wrapper (e.g., rss-buddy.sh or the console script).
+    try:
+        config = RssBuddyConfig.from_environment()
+    except ValueError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        return 1  # Return error code
+
+    # Run the feed processing logic
+    try:
+        run_feed_processing(config)
+        return 0  # Return success code
+    except Exception as e:
+        print(f"An unexpected error occurred during feed processing: {e}", file=sys.stderr)
+        return 1  # Return error code
 
 
 if __name__ == "__main__":

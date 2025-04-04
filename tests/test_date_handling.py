@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
@@ -12,25 +13,33 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from dateutil import parser
 
 from rss_buddy.feed_processor import FeedProcessor
-from rss_buddy.state_manager import StateManager
+from rss_buddy.utils.date_parser import RobustDateParser
 
 
 class TestDateHandling(unittest.TestCase):
     """Test cases specifically for date handling functions."""
 
-    @patch("rss_buddy.feed_processor.AIInterface")
-    def setUp(self, mock_ai_interface):
+    def setUp(self):
         """Set up test environment."""
-        # Mock the AI interface to avoid OpenAI API key issues
-        mock_ai = mock_ai_interface.return_value
-        mock_ai.evaluate_article_preference.return_value = "FULL"
-        mock_ai.generate_consolidated_summary.return_value = "This is a consolidated summary"
+        mock_ai = MagicMock()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        # Assign mock to self for use in other methods
+        self.mock_state_manager = MagicMock()
 
-        # Create a temporary state manager and feed processor for testing
-        self.state_manager = StateManager(output_dir=".")
+        date_parser = RobustDateParser()
+
         self.feed_processor = FeedProcessor(
-            state_manager=self.state_manager, ai_interface=mock_ai, days_lookback=7
+            state_manager=self.mock_state_manager,  # Use stored mock
+            ai_interface=mock_ai,
+            date_parser=date_parser,
+            days_lookback=7,
+            user_preference_criteria="",
+            summary_max_tokens=0,
         )
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        self.temp_dir.cleanup()
 
     def test_simple_date_parsing(self):
         """Test basic date parsing functionality."""
@@ -232,9 +241,12 @@ class TestDateHandling(unittest.TestCase):
         for days in [1, 3, 7, 14, 30]:
             # Create a processor with specified lookback days
             processor = FeedProcessor(
-                state_manager=self.state_manager,
-                ai_interface=MagicMock(),
+                state_manager=self.mock_state_manager,  # Use stored mock
+                ai_interface=MagicMock(),  # Can use a fresh mock here
+                date_parser=RobustDateParser(),  # Need a date parser
                 days_lookback=days,
+                user_preference_criteria="",
+                summary_max_tokens=0,
             )
 
             # A date just inside the lookback window
