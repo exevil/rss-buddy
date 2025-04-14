@@ -1,0 +1,46 @@
+from typing import Optional
+from datetime import datetime
+
+from rss_buddy.models import Item, FeedMetadata, FeedCredentials
+
+def generate_test_item(
+        index: int,
+        pub_date: Optional[datetime] = None
+    ) -> Item:
+    """
+    Generate a test item with the given index and pub_date.
+    """
+    return Item(
+        title=f"Test Item {index}",
+        link=f"https://example.com/test-item-{index}",
+        pub_date=pub_date if pub_date else datetime(2021, 1, index + 1),
+        description=f"Test Description {index}",
+        guid=f"test-guid-{index}"
+    )
+
+def generate_test_feed_metadata(
+        last_build_date: Optional[datetime] = None,
+        pub_date: Optional[datetime] = None
+) -> FeedMetadata:
+    """
+    Generate a test feed metadata with the given last_build_date and pub_date.
+    """
+    return FeedMetadata(
+        title="Test Feed",
+        link="https://example.com/feed",
+        description="Test Feed Description",
+        language="en-us",
+        last_build_date=last_build_date if last_build_date else datetime.now(),
+        ttl=60,
+        docs="https://www.rssboard.org/rss-specification",
+        pub_date=pub_date if pub_date else datetime.now()
+    )
+
+def generate_test_feed_credentials() -> FeedCredentials:
+    """
+    Generate a test feed credentials.
+    """
+    return FeedCredentials(
+        url="https://example.com/feed",
+        filter_criteria="test_filter_criteria"
+    )

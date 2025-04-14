@@ -1,0 +1,21 @@
+Credentials:
+- {{ feed.credentials.url }}
+- {{ feed.credentials.filter_criteria }}
+
+Metadata:
+- {{ feed.metadata.title }}
+- {{ feed.metadata.link }}
+- {{ feed.metadata.description }}
+- {{ feed.metadata.language }}
+- {{ feed.metadata.last_build_date }}
+- {{ feed.metadata.ttl }}
+- {{ feed.metadata.docs }}
+- {{ feed.metadata.pub_date }}
+
+Items:{% for item in feed.items %}
+- {{ item.title }}
+- {{ item.link }}
+- {{ item.pub_date }}
+- {{ item.description }}
+- {{ item.guid }}
+{% endfor %}

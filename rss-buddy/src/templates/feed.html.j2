@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ feed_title }}</title>
+    <meta charset="UTF-8">
+    <style> /* Add some basic styling */ </style>
+</head>
+<body>
+    <h1>{{ feed_title }}</h1>
+    <p>{{ feed_description }}</p>
+    <ul>
+        {% for item in items %}
+        <li>
+            <a href="{{ item.link }}">{{ item.title }}</a>
+            {% if item.pub_date %} ({{ item.pub_date }}) {% endif %}
+            {% if item.tag %} [{{ item.tag }}] {% endif %}
+        </li>
+        {% else %}
+        <li>No items in this feed.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

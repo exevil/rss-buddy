@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+    <title>{{ feed.metadata.title }}</title>
+    <link>{{ feed.metadata.link }}</link>
+    <description>{{ feed.metadata.description }}</description>
+    <language>{{ feed.metadata.language }}</language>
+    <lastBuildDate>{{ feed.metadata.last_build_date }}</lastBuildDate>
+    <ttl>{{ feed.metadata.ttl }}</ttl>
+    <docs>{{ feed.metadata.docs }}</docs>
+    <generator>RSS Buddy</generator>
+    <pubDate>{{ feed.metadata.pub_date }}</pubDate>
+
+    {% for item in items %}
+    <item>
+        <title>{{ item.title | escape }}</title>
+        <link>{{ item.link }}</link>
+        <guid isPermaLink="true">{{ item.link }}</guid>
+        {% if item.pub_date %}
+        <pubDate>{{ item.pub_date }}</pubDate>
+        {% endif %}
+    </item>
+    {% endfor %}
+</channel>
+</rss>
