@@ -1,6 +1,8 @@
-from openai import OpenAI
 import json
 from typing import Optional
+import logging
+
+from openai import OpenAI
 
 from rss_buddy.models import Item, ProcessedItem
 from rss_buddy.protocols import FeedItemProcessor
@@ -42,7 +44,6 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
            - Return 1 if the item matches the criteria and should be included
            - Return 0 if the item does not match the criteria and should be excluded
 
-        Example of expected response format:
         <example_response>
         1
         </example_response>
@@ -62,21 +63,27 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
                 {"role": "user", "content": user_prompt}
             ]
         )
+
+        # Validate the response
+        completion_text = ""
         if not completion.choices[0].message.content:
-            raise ValueError("No content in the response from OpenAI")
-        completion_text = completion.choices[0].message.content.strip()
-        print(f"Completion text: {completion_text}")
+            logging.error(f"No content in the response from OpenAI, item: {item.title} will pass the filter")
+            completion_text = "1"
+        else:
+            completion_text = completion.choices[0].message.content.strip()
         
         # Convert the response to a boolean
         passed_filter = False
         match completion_text:
-            case "1":
-                passed_filter = True
             case "0":
                 passed_filter = False
+            case "1":
+                passed_filter = True
             case _:
-                raise ValueError(f"Invalid response from OpenAI: {completion_text}")
-        
+                # If the response is not 0 or 1, we will assume that the item will pass the filter
+                logging.error(f"Invalid response from OpenAI: {completion_text}, item: {item.title} will pass the filter")
+                passed_filter = True
+
         return ProcessedItem(
             item=item, 
             passed_filter=passed_filter

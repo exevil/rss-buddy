@@ -12,7 +12,6 @@ def feed():
         credentials=generate_test_feed_credentials(),
         metadata=generate_test_feed_metadata(
             last_build_date=datetime.now(),
-            pub_date=datetime.now()
         ),
         items=[
             generate_test_item(1, datetime.now()),

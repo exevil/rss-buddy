@@ -40,8 +40,6 @@ class FeedMetadata:
     language: str # The language of the feed.
     last_build_date: datetime # The date and time the feed was last built.
     ttl: int # The time to live of the feed.
-    docs: str # The documentation of the feed.
-    pub_date: datetime # The date and time the feed was published.
 
 @dataclass
 class Feed:

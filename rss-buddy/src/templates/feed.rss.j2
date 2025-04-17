@@ -7,13 +7,13 @@
     <language>{{ feed.metadata.language }}</language>
     <lastBuildDate>{{ feed.metadata.last_build_date }}</lastBuildDate>
     <ttl>{{ feed.metadata.ttl }}</ttl>
-    <docs>{{ feed.metadata.docs }}</docs>
     <generator>RSS Buddy</generator>
-    <pubDate>{{ feed.metadata.pub_date }}</pubDate>
+    <pubDate>{{ feed.metadata.last_build_date }}</pubDate>
 
-    {% for item in items %}
+    {% for item in feed.items %}
     <item>
         <title>{{ item.title | escape }}</title>
+        <description>{{ item.description }}</description>
         <link>{{ item.link }}</link>
         <guid isPermaLink="true">{{ item.link }}</guid>
         {% if item.pub_date %}

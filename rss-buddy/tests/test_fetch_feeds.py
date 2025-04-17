@@ -27,8 +27,6 @@ def response_text():
             <language>en</language>
             <lastBuildDate>Fri, 01 Jan 2021 00:00:00 GMT</lastBuildDate>
             <ttl>1800</ttl>
-            <docs>https://www.example.com/rss</docs>
-            <pubDate>Fri, 01 Jan 2021 00:00:00 GMT</pubDate>
             <item>
                 <title>Test Item 1</title>
                 <link>https://www.example.com/test1</link>
@@ -52,7 +50,7 @@ def test_fetch_feeds(mock_get):
     mock_get.return_value.status_code = 200
     mock_get.return_value.text = response_text()
     credentials = input_credentials()
-    
+
     feeds = fetch_feeds(
         credentials=credentials,
         days_lookback=1,
@@ -70,8 +68,6 @@ def test_fetch_feeds(mock_get):
         assert feed.metadata.language == "en"
         assert feed.metadata.last_build_date == datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc)
         assert feed.metadata.ttl == 1800
-        assert feed.metadata.docs == "https://www.example.com/rss"
-        assert feed.metadata.pub_date == datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc)
 
         assert len(feed.items) == 2
 

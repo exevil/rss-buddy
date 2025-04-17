@@ -11,7 +11,6 @@ def feed():
         credentials=generate_test_feed_credentials(),
         metadata=generate_test_feed_metadata(
             last_build_date=datetime(2025, 4, 10),
-            pub_date=datetime(2025, 4, 10)
         ),
         items=[
             generate_test_item(1),
@@ -31,8 +30,6 @@ Metadata:
 - en-us
 - 2025-04-10 00:00:00
 - 60
-- https://www.rssboard.org/rss-specification
-- 2025-04-10 00:00:00
 
 Items:
 - Test Item 1

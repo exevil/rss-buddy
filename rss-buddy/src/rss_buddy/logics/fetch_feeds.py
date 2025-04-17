@@ -1,5 +1,6 @@
 import requests
 import feedparser
+import logging
 from typing import List
 from email.utils import parsedate_to_datetime
 
@@ -12,8 +13,10 @@ def fetch_feeds(
     """
     Fetch the RSS feeds.
     """
+    logging.info(f"Fetching {len(credentials)} RSS feeds.")
     feeds = []
     for credential in credentials:
+        logging.info(f"Fetching RSS feed from {credential.url}.")
         response = requests.get(credential.url)
         
         if response.status_code != 200:
@@ -28,9 +31,7 @@ def fetch_feeds(
             description=parsed_feed.feed.description,
             language=parsed_feed.feed.language,
             last_build_date=parsedate_to_datetime(parsed_feed.feed.updated),
-            ttl=int(parsed_feed.feed.ttl),
-            docs=parsed_feed.feed.docs,
-            pub_date=parsedate_to_datetime(parsed_feed.feed.published),
+            ttl=int(parsed_feed.feed.get("ttl", 0))
         )
 
         # Items.
@@ -51,5 +52,5 @@ def fetch_feeds(
             items=items,
         )
         feeds.append(feed)
-        
+        logging.info(f"Successfully fetched RSS feed from {credential.url}.")
     return feeds

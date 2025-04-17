@@ -19,11 +19,10 @@ def generate_test_item(
     )
 
 def generate_test_feed_metadata(
-        last_build_date: Optional[datetime] = None,
-        pub_date: Optional[datetime] = None
+        last_build_date: Optional[datetime] = None
 ) -> FeedMetadata:
     """
-    Generate a test feed metadata with the given last_build_date and pub_date.
+    Generate a test feed metadata with the given last_build_date.
     """
     return FeedMetadata(
         title="Test Feed",
@@ -32,8 +31,6 @@ def generate_test_feed_metadata(
         language="en-us",
         last_build_date=last_build_date if last_build_date else datetime.now(),
         ttl=60,
-        docs="https://www.rssboard.org/rss-specification",
-        pub_date=pub_date if pub_date else datetime.now()
     )
 
 def generate_test_feed_credentials() -> FeedCredentials:

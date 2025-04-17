@@ -1,3 +1,5 @@
+import os
+import logging
 from rss_buddy.config import parse_cli_arguments, load_config
 from rss_buddy.logics.fetch_feeds import fetch_feeds
 from rss_buddy.logics.process_feed import process_feed
@@ -7,6 +9,8 @@ from rss_buddy.logics.generate_outputs import generate_outputs
 from rss_buddy.logics.generate_feed import generate_feed
 
 from rss_buddy.models import AppConfig, Feed, OutputType
+
+logging.basicConfig(level=logging.INFO)
 
 class Main:
     """ 
@@ -52,26 +56,40 @@ class Main:
                 digest_item=digest,
             )
             # Generate outputs.
-            output_name = feed.credentials.url.split('/')[-1]
+            template_dir = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "..",
+                    "templates",
+                )
+            )
+            output_name = feed.metadata.title.replace(" ", "-")
             outputs = generate_outputs(
                 feed=output_feed,
-                template_dir="templates",
+                template_dir=template_dir,
                 outputs=[
                     OutputType(
-                        template_name="feed.html",
+                        template_name="feed.html.j2",
                         relative_output_path=f"{output_name}.html",
                     ),
                     OutputType(
-                        template_name="feed.rss",
+                        template_name="feed.rss.j2",
                         relative_output_path=f"{output_name}.rss",
                     ),
                 ],
             )
             # Save outputs.
+            output_dir = self.config.output_dir
+            # Create output directory if it doesn't exist.
+            os.makedirs(output_dir, exist_ok=True)
             for output_type, output_content in outputs.items():
-                with open(output_type.relative_output_path, "w") as f:
+                save_path = os.path.join(output_dir, output_type.relative_output_path)
+                logging.info(f"Saving output: {save_path}")
+                with open(save_path, "w") as f:
                     f.write(output_content)
-
+                logging.info(f"Output saved: {save_path}")
+                
 if __name__ == "__main__":
     cli_args = parse_cli_arguments()
     config = load_config(cli_args)
