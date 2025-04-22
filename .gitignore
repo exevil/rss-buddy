@@ -40,3 +40,4 @@ docs/*
 
 # Temporary test environments
 .test_venv_*
+/.cursor
