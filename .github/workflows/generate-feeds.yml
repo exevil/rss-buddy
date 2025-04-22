@@ -22,8 +22,10 @@ jobs:
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.11'
+            - name: Install poetry
+              run: curl -sSL https://install.python-poetry.org | python3 -
             - name: Install dependencies
-              run: cd rss-buddy && poetry install
+              run: poetry install
             - name: Generate feeds
               run: cd rss-buddy && poetry run rss-buddy
             - name: Upload outputs
