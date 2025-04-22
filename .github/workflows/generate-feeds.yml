@@ -1,0 +1,35 @@
+name: Generate Feeds
+
+on:
+    schedule:
+        - cron: "0 9,12,18 * * *"
+    push:
+        branches:
+            - main
+
+
+jobs:
+    generate-feeds:
+        runs-on: ubuntu-latest
+        env:
+            FEED_CREDENTIALS: ${{ vars.FEED_CREDENTIALS }}
+            GLOBAL_FILTER_CRITERIA: ${{ vars.GLOBAL_FILTER_CRITERIA }}
+            DAYS_LOOKBACK: ${{ vars.DAYS_LOOKBACK }}
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            OUTPUT_DIR: ${{ vars.OUTPUT_DIR }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+            - name: Install poetry
+              run: curl -sSL https://install.python-poetry.org | python3 -
+            - name: Install dependencies
+              run: cd rss-buddy && poetry install
+            - name: Generate feeds
+              run: cd rss-buddy && poetry run rss-buddy
+            - name: Upload outputs
+              uses: peaceiris/actions-gh-pages@v4
+              with:
+                github_token: ${{ secrets.GITHUB_TOKEN }}
+                publish_dir: ${{ vars.OUTPUT_DIR }}
