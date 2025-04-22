@@ -20,6 +20,8 @@ dependencies = [
 [tool.poetry]
 packages = [{include = "rss_buddy", from = "src"}]
 
+[tool.poetry.scripts]
+rss-buddy = "rss_buddy.logics.main:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

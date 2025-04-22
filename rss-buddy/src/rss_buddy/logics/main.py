@@ -89,9 +89,12 @@ class Main:
                 with open(save_path, "w") as f:
                     f.write(output_content)
                 logging.info(f"Output saved: {save_path}")
-                
-if __name__ == "__main__":
+
+def main():
     cli_args = parse_cli_arguments()
     config = load_config(cli_args)
     main = Main(config=config)
     main.run()
+
+if __name__ == "__main__":
+    main()
