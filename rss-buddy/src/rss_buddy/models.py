@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class Item:
@@ -27,7 +27,7 @@ class FeedCredentials:
     Initial credentials for an RSS feed.
     """
     url: str # The URL of the RSS feed.
-    filter_criteria: str # A criteria to filter the feed.
+    filter_criteria: Optional[str] # A criteria to filter the feed.
 
 @dataclass
 class FeedMetadata:
@@ -73,7 +73,7 @@ class AppConfig:
     Global App Configuration.
     """
     feed_credentials: List[FeedCredentials] # The credentials for each feed.
-    global_filter_criteria: str # A criteria to filter every feed additionally to the feed's own filter.
+    global_filter_criteria: Optional[str] # A criteria to filter every feed additionally to the feed's own filter.
     days_lookback: int # The number of days to look back for each feed.
     openai_api_key: str # The API key for the OpenAI API.
     output_dir: str # The directory to save the output.

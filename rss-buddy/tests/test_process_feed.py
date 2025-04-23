@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 from rss_buddy.models import Feed, ProcessedFeed, ProcessedItem
@@ -14,9 +14,9 @@ def feed():
             last_build_date=datetime.now(),
         ),
         items=[
-            generate_test_item(1, datetime.now()),
-            generate_test_item(2, datetime.now() - timedelta(days=2)),
-            generate_test_item(3, datetime.now() - timedelta(days=4))
+            generate_test_item(1, datetime.now(timezone.utc)),
+            generate_test_item(2, datetime.now(timezone.utc) - timedelta(days=2)),
+            generate_test_item(3, datetime.now(timezone.utc) - timedelta(days=4))
         ]
     )
 

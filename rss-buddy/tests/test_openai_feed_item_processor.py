@@ -7,14 +7,17 @@ from .test_utils import generate_test_item
 sample_item = generate_test_item(1)
 
 @pytest.mark.parametrize(
-    "response_int, expected_passed_filter, expected_error",
+    "has_item_criteria, response_int, expected_passed_filter",
     [
-        (1, True, None),
-        (0, False, None),
-        (3, None, ValueError)
+        (False, 1, True),
+        (False, 0, True),
+        (False, 3, True),
+        (True, 1, True),
+        (True, 0, False),
+        (True, 3, True)
     ]
 )
-def test_process_item(response_int, expected_passed_filter, expected_error):
+def test_process_item(has_item_criteria, response_int, expected_passed_filter):
     openai_mock = MagicMock()
     openai_mock.chat.completions.create.return_value = MagicMock(
         choices=[
@@ -26,12 +29,9 @@ def test_process_item(response_int, expected_passed_filter, expected_error):
 
     processor = OpenAIFeedItemProcessor(
         openai_api_key="test_api_key",
+        item_filter_criteria="test_item_criteria" if has_item_criteria else None,
         client=openai_mock
     )
 
-    if expected_error is None:
-        processed_item = processor.process(sample_item)
-        assert processed_item.passed_filter == expected_passed_filter
-    else:
-        with pytest.raises(expected_error):
-            processor.process(sample_item)
+    processed_item = processor.process(sample_item)
+    assert processed_item.passed_filter == expected_passed_filter

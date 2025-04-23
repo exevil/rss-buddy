@@ -15,9 +15,9 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
     def __init__(
             self, 
             openai_api_key: str,
+            global_filter_criteria: Optional[str] = None,
             model: str = "gpt-4o-mini",
-            global_filter_criteria: str = "",
-            item_filter_criteria: str = "",
+            item_filter_criteria: Optional[str] = None,
             *,
             client: Optional[OpenAI] = None # if provided, client parameters will be ignored
         ):
@@ -28,14 +28,24 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
         self.client = client or OpenAI(api_key=openai_api_key)
 
     def process(self, item: Item) -> ProcessedItem:
+        # Build the filter criteria.
+        filter_criteria = ""
+        if self.global_filter_criteria:
+            filter_criteria += f"Global filter criteria: {self.global_filter_criteria}\n"
+        if self.item_filter_criteria:
+            filter_criteria += f"Item filter criteria: {self.item_filter_criteria}\n"
+
+        if not filter_criteria:
+            logging.warning("No filter criteria provided, item will pass the filter")
+            return ProcessedItem(
+                item=item, 
+                passed_filter=True
+            )
+
         system_prompt = f"""
         You are an RSS feed filtering assistant. Your task is to evaluate RSS feed items against specific criteria.
 
-        Global filter criteria:
-        {self.global_filter_criteria}
-
-        Item filter criteria:
-        {self.item_filter_criteria}
+        {filter_criteria}
 
         Instructions:
         1. Analyze the RSS feed item provided to you
