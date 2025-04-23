@@ -1,8 +1,7 @@
 import os
+import json
 from typing import Optional
 from argparse import ArgumentParser, Namespace as ArgNamespace
-from dotenv import load_dotenv
-
 from rss_buddy.models import AppConfig, FeedCredentials
 
 def parse_cli_arguments() -> ArgNamespace:
@@ -41,8 +40,12 @@ def load_config(cli_args: ArgNamespace = ArgNamespace()) -> AppConfig:
     """
     Load the configuration for the RSS feed.
     """
-    # Load environment variables.
-    load_dotenv(verbose=True)
+
+    # Load test environment if available.
+    test_env_path = os.path.join(os.path.dirname(__file__), "../../.env.json")
+    if os.path.exists(test_env_path):
+        with open(test_env_path, "r") as f:
+            os.environ.update(json.load(f))
 
     # Feed credentials.
     feed_credentials = []
@@ -56,7 +59,7 @@ def load_config(cli_args: ArgNamespace = ArgNamespace()) -> AppConfig:
         credentials_raw = os.getenv("FEED_CREDENTIALS")
         if not credentials_raw:
             raise ValueError("FEED_CREDENTIALS is not set")
-        credential_rows = credentials_raw.split("\\n")
+        credential_rows = credentials_raw.split("\n")
         for credential_row in credential_rows:
             url, filter_criteria = [
                 attr.strip() 
