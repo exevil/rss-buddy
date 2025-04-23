@@ -81,7 +81,7 @@ def load_config(cli_args: Optional[ArgNamespace] = None) -> AppConfig:
     # Global filter criteria.
     if cli_args and cli_args.global_filter_criteria:
         global_filter_criteria = cli_args.global_filter_criteria
-    elif (env_global_filter_criteria := os.getenv("GLOBAL_FILTER_CRITERIA")) is not None:
+    elif (env_global_filter_criteria := os.getenv("GLOBAL_FILTER_CRITERIA")):
         global_filter_criteria = env_global_filter_criteria
     else:
         global_filter_criteria = None
@@ -90,7 +90,7 @@ def load_config(cli_args: Optional[ArgNamespace] = None) -> AppConfig:
     # Days lookback.
     if cli_args and cli_args.days_lookback:
         days_lookback = cli_args.days_lookback
-    elif (env_days_lookback := os.getenv("DAYS_LOOKBACK")) is not None:
+    elif (env_days_lookback := os.getenv("DAYS_LOOKBACK")):
         days_lookback = int(env_days_lookback)
     else:
         days_lookback = 1
@@ -107,7 +107,7 @@ def load_config(cli_args: Optional[ArgNamespace] = None) -> AppConfig:
     # Output directory.
     if cli_args and cli_args.output_dir:
         output_dir = cli_args.output_dir
-    elif (env_output_dir := os.getenv("OUTPUT_DIR")) is not None:
+    elif (env_output_dir := os.getenv("OUTPUT_DIR")):
         output_dir = env_output_dir
     else:
         output_dir = "./output"
