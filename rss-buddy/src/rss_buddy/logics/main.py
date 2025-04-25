@@ -1,5 +1,7 @@
 import os
 import logging
+from typing import Dict
+
 from rss_buddy.config import parse_cli_arguments, load_config
 from rss_buddy.logics.fetch_feeds import fetch_feeds
 from rss_buddy.logics.process_feed import process_feed
@@ -9,7 +11,6 @@ from rss_buddy.logics.generate_outputs import generate_outputs
 from rss_buddy.logics.generate_feed import generate_feed
 
 from rss_buddy.models import AppConfig, Feed, OutputType
-
 logging.basicConfig(level=logging.INFO)
 
 class Main:
@@ -32,7 +33,18 @@ class Main:
             days_lookback=self.config.days_lookback,
         )
 
+        # Get template directory.
+        template_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "templates",
+            )
+        )
+
         # Process feeds.
+        feed_outputs: Dict[str, Dict[OutputType, str]] = {}
         for feed in feeds:
             processor = OpenAIFeedItemProcessor(
                 openai_api_key=self.config.openai_api_key,
@@ -55,18 +67,10 @@ class Main:
                 passed_items=processed_feed.passed_items,
                 digest_item=digest,
             )
-            # Generate outputs.
-            template_dir = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "..",
-                    "templates",
-                )
-            )
+            # Generate feed outputs.
             output_name = feed.metadata.title.replace(" ", "-")
-            outputs = generate_outputs(
-                feed=output_feed,
+            feed_outputs[output_name] = generate_outputs(
+                input=output_feed,
                 template_dir=template_dir,
                 outputs=[
                     OutputType(
@@ -79,16 +83,34 @@ class Main:
                     ),
                 ],
             )
-            # Save outputs.
-            output_dir = self.config.output_dir
-            # Create output directory if it doesn't exist.
-            os.makedirs(output_dir, exist_ok=True)
-            for output_type, output_content in outputs.items():
-                save_path = os.path.join(output_dir, output_type.relative_output_path)
-                logging.info(f"Saving output: {save_path}")
-                with open(save_path, "w") as f:
-                    f.write(output_content)
-                logging.info(f"Output saved: {save_path}")
+
+        # Generate index outputs.
+        index_input = dict(zip(feed_outputs.keys(), feeds))
+        index_outputs = generate_outputs(
+            input=index_input,
+            template_dir=template_dir,
+            outputs=[
+                OutputType(
+                    template_name="index.html.j2",
+                    relative_output_path="index.html",
+                ),
+            ],
+        )
+        # Merge feed outputs and index outputs.
+        merged_feed_outputs = dict()
+        for subdict in feed_outputs.values():
+            merged_feed_outputs.update(subdict)
+        outputs = {**merged_feed_outputs, **index_outputs}
+        # Save outputs.
+        output_dir = self.config.output_dir
+        # Create output directory if it doesn't exist.
+        os.makedirs(output_dir, exist_ok=True)
+        for output_type, output_content in outputs.items():
+            save_path = os.path.join(output_dir, output_type.relative_output_path)
+            logging.info(f"Saving output: {save_path}")
+            with open(save_path, "w") as f:
+                f.write(output_content)
+            logging.info(f"Output saved: {save_path}")
 
 def main():
     cli_args = parse_cli_arguments()

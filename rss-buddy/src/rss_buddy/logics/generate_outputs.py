@@ -1,23 +1,23 @@
 import os
 import logging
 
-from typing import List, Dict
+from typing import List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 
-from rss_buddy.models import Feed, OutputType
+from rss_buddy.models import OutputType
 
 def generate_outputs(
-    feed: Feed,
+    input: Any,
     template_dir: str,
     outputs: List[OutputType]
 ) -> Dict[OutputType, str]:
     """
-    Generate outputs from a feed using the specified output types.
+    Generate outputs from an input using the specified output types. The input will be passed to the template as the `input` variable.
     
     Returns:
         Dict[Output, str]: A dictionary mapping output types to their rendered content.
     """
-    logging.info(f"Generating outputs for feed: {feed.metadata.title}")
+    logging.info(f"Generating outputs for input: {input}")
 
     env = Environment(loader=FileSystemLoader(template_dir))
 
@@ -26,7 +26,7 @@ def generate_outputs(
         logging.info(f"Generating output: {output.template_name}")
 
         template = env.get_template(output.template_name)
-        rendered_output = template.render(feed=feed)
+        rendered_output = template.render(input=input)
         rendered_outputs[output] = rendered_output
 
         logging.info(f"Output generated: {output.template_name}")

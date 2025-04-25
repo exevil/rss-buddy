@@ -66,7 +66,7 @@ def test_generate_outputs():
     fixtures_dir = os.path.join(test_dir, "fixtures")
 
     rendered_outputs = generate_outputs(
-        feed=feed(), 
+        input=feed(), 
         template_dir=fixtures_dir, 
         outputs=output_types()
     )

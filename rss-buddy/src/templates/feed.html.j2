@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ feed.metadata.title }}</title>
+    <title>{{ input.metadata.title }}</title>
     <meta charset="UTF-8">
     <style> /* Add some basic styling */ </style>
 </head>
 <body>
-    <h1>{{ feed.metadata.title }}</h1>
-    <p>{{ feed.metadata.description }}</p>
+    <h1>{{ input.metadata.title }}</h1>
+    <p>{{ input.metadata.description }}</p>
     <ul>
-        {% for item in feed.items %}
+        {% for item in input.items %}
         <li>
             <a href="{{ item.link }}">{{ item.title }}</a>
             <p>{{ item.description }}</p>

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">
 <channel>
-    <title>{{ feed.metadata.title }}</title>
-    <link>{{ feed.metadata.link }}</link>
-    <description>{{ feed.metadata.description }}</description>
-    <language>{{ feed.metadata.language }}</language>
-    <lastBuildDate>{{ feed.metadata.last_build_date }}</lastBuildDate>
-    <ttl>{{ feed.metadata.ttl }}</ttl>
+    <title>{{ input.metadata.title }}</title>
+    <link>{{ input.metadata.link }}</link>
+    <description>{{ input.metadata.description }}</description>
+    <language>{{ input.metadata.language }}</language>
+    <lastBuildDate>{{ input.metadata.last_build_date }}</lastBuildDate>
+    <ttl>{{ input.metadata.ttl }}</ttl>
     <generator>RSS Buddy</generator>
-    <pubDate>{{ feed.metadata.last_build_date }}</pubDate>
+    <pubDate>{{ input.metadata.last_build_date }}</pubDate>
 
-    {% for item in feed.items %}
+    {% for item in input.items %}
     <item>
         <title>{{ item.title | escape }}</title>
         <description>{{ item.description }}</description>

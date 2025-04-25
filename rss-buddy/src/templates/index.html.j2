@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>RSS Buddy: Index</title>
+    <meta charset="UTF-8">
+    <style>
+        /* Add some basic styling */
+    </style>
+</head>
+
+<body>
+    <h1>RSS Buddy: Index</h1>
+    <p>Last processed feeds.</p>
+    <ul>
+        {% for feed_output_name, feed in input.items() %}
+        <li>
+            <a href="{{ './' + feed_output_name + '.html' }}">{{ feed.metadata.title }}</a>
+            <p>{{ feed.metadata.description }}</p>
+            {{ feed.metadata.last_build_date }}
+            <a href="{{ './' + feed_output_name + '.rss' }}">RSS</a>
+        </li>
+        {% else %}
+        <li>No feeds processed.</li>
+        {% endfor %}
+    </ul>
+</body>
+
+</html>
