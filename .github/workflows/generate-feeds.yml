@@ -48,3 +48,7 @@ jobs:
             - name: Deploy to GitHub Pages
               id: deployment
               uses: actions/deploy-pages@v4 
+            
+            - name: Show GitHub Pages URL
+              run: |
+                echo "Your site is live at: https://$GITHUB_REPOSITORY_OWNER.github.io/${GITHUB_REPOSITORY#*/}/" >> $GITHUB_STEP_SUMMARY
