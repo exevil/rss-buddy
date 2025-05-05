@@ -142,8 +142,7 @@ class Main:
         state_manager.write()
 
 def main():
-    cli_args = parse_cli_arguments()
-    config = load_config(cli_args)
+    config = load_config()
     main = Main(config=config)
     main.run()
 

@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
-
+from pydantic import BaseModel, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 # GUID of the last processed item.
 ItemGUID = str
 # Path to the output file.
@@ -62,16 +62,38 @@ class OutputType(BaseModel):
     template_name: str # The name of the template to use.
     relative_output_path: OutputPath # The relative path inside the output folder where the output will be saved.
 
-    class Config:
-        frozen = True
+    model_config = ConfigDict(
+        frozen = True,
+    )
+
+class AppEnvSettings(BaseSettings):
+    """
+    App settings from environment variables.
+    """
+    global_filter_criteria: Optional[str] = None # A criteria to filter every feed additionally to the feed's own filter.
+    days_lookback: int = 1 # The number of days to look back for each feed.
+    openai_api_key: Optional[str] = None # The API key for the OpenAI API.
+    output_dir: Optional[str] = None # The directory to save the output.
+    state_file_name: Optional[str] = None # The name of the state file to load/save relative to the output directory.
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        frozen=True,
+        extra="ignore",
+    )
 
 class AppConfig(BaseModel):
     """
-    Global App Configuration.
+    Global app config.
     """
-    feed_credentials: List[FeedCredentials] # The credentials for each feed.
-    global_filter_criteria: Optional[str] # A criteria to filter every feed additionally to the feed's own filter.
+    global_filter_criteria: Optional[str] = None # A criteria to filter every feed additionally to the feed's own filter.
     days_lookback: int # The number of days to look back for each feed.
     openai_api_key: str # The API key for the OpenAI API.
     output_dir: str # The directory to save the output.
     state_file_name: str # The name of the state file to load/save relative to the output directory.
+    feed_credentials: List[FeedCredentials] # Feed credentials.
+
+    model_config = ConfigDict(
+        frozen = True,
+    )
