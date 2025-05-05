@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 from argparse import ArgumentParser, Namespace as ArgNamespace
 from dotenv import load_dotenv
 from rss_buddy.models import FeedCredentials, AppEnvSettings, AppConfig
@@ -48,26 +48,25 @@ def parse_feed_credentials(cli_args: Optional[ArgNamespace] = None) -> List[Feed
     """
     Parse the feed credentials.
     """
-    credential_splits = []
+    # URL -> filter_criteria
+    credential_data: Dict[str, str] = {}
     # Load from CLI arguments if provided.
     if cli_args and cli_args.feed_credentials:
         for credential in cli_args.feed_credentials:
             split = credential.split(" : ")
-            credential_splits.append(split)
+            if len(split) != 2:
+                logging.warning(f"Invalid feed credential: {credential}, skipping...")
+                continue
+            url, filter_criteria = split
+            credential_data[url] = filter_criteria
     else:
-        # Get all environment variables that start with "FEED_CREDENTIALS_".
-        variables = os.environ.items()
-        for key, value in variables:
-            if key.startswith("FEED_CREDENTIALS_"):
-                split = value.split("\n", maxsplit=1)
-                credential_splits.append(split)
+        credentials_json_str = os.getenv("FEED_CREDENTIALS")
+        if credentials_json_str:
+            credentials_json = json.loads(credentials_json_str)
+            credential_data.update(credentials_json)
     # Parse each credential split.
     feed_credentials = []
-    for split in credential_splits:
-        if len(split) != 2:
-            logging.warning(f"Invalid feed credential: {split}, skipping...")
-            continue
-        url, filter_criteria = split
+    for url, filter_criteria in credential_data.items():
         feed_credentials.append(
             FeedCredentials(
                 url=url.strip(),
