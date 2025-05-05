@@ -1,9 +1,14 @@
-from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-@dataclass
-class Item:
+from pydantic import BaseModel
+
+# GUID of the last processed item.
+ItemGUID = str
+# Path to the output file.
+OutputPath = str
+
+class Item(BaseModel):
     """
     Item in an RSS feed.
     """
@@ -13,24 +18,14 @@ class Item:
     description: str # The full content of the item.
     guid: str # The unique identifier for the item.
 
-@dataclass
-class ProcessedItem:
-    """
-    Processed item in an RSS feed.
-    """
-    item: Item # The item in the RSS feed.
-    passed_filter: bool # Whether the item passed the filter.
-
-@dataclass
-class FeedCredentials:
+class FeedCredentials(BaseModel):
     """
     Initial credentials for an RSS feed.
     """
     url: str # The URL of the RSS feed.
     filter_criteria: Optional[str] # A criteria to filter the feed.
 
-@dataclass
-class FeedMetadata:
+class FeedMetadata(BaseModel):
     """
     Metadata for an RSS feed.
     """
@@ -41,8 +36,7 @@ class FeedMetadata:
     last_build_date: datetime # The date and time the feed was last built.
     ttl: int # The time to live of the feed.
 
-@dataclass
-class Feed:
+class Feed(BaseModel):
     """
     RSS feed.
     """
@@ -50,25 +44,28 @@ class Feed:
     metadata: FeedMetadata # Metadata for the feed.
     items: List[Item] # A list of items in the feed.
 
-@dataclass
-class ProcessedFeed:
+class ProcessedFeed(BaseModel):
     """
     Processed RSS feed with its essential properties.
     """
-    feed: Feed # The original RSS feed.
-    passed_items: List[Item] # A list of items that passed the filter.
-    failed_items: List[Item] # A list of items that failed the filter.
+    class ProcessingResult(BaseModel):
+        passed_item_guids: List[ItemGUID] # A list of items that passed the filter.
+        failed_item_guids: List[ItemGUID] # A list of items that failed the filter.
 
-@dataclass(frozen=True)
-class OutputType:
+    feed: Feed # The original RSS feed.
+    result: ProcessingResult # The result of the processing.
+
+class OutputType(BaseModel):
     """
     An output type.
     """
     template_name: str # The name of the template to use.
-    relative_output_path: str # The relative path inside the output folder where the output will be saved.
+    relative_output_path: OutputPath # The relative path inside the output folder where the output will be saved.
 
-@dataclass
-class AppConfig:
+    class Config:
+        frozen = True
+
+class AppConfig(BaseModel):
     """
     Global App Configuration.
     """
@@ -77,3 +74,4 @@ class AppConfig:
     days_lookback: int # The number of days to look back for each feed.
     openai_api_key: str # The API key for the OpenAI API.
     output_dir: str # The directory to save the output.
+    state_file_name: str # The name of the state file to load/save relative to the output directory.

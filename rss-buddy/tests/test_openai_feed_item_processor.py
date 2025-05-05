@@ -33,5 +33,5 @@ def test_process_item(has_item_criteria, response_int, expected_passed_filter):
         client=openai_mock
     )
 
-    processed_item = processor.process(sample_item)
-    assert processed_item.passed_filter == expected_passed_filter
+    is_passed_filter = processor.is_passed_filter(sample_item)
+    assert is_passed_filter == expected_passed_filter

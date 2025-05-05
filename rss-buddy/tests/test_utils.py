@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
-from rss_buddy.models import Item, FeedMetadata, FeedCredentials
+from rss_buddy.models import Item, FeedMetadata, FeedCredentials, Feed
 
 def generate_test_item(
         index: int,
@@ -40,4 +40,18 @@ def generate_test_feed_credentials() -> FeedCredentials:
     return FeedCredentials(
         url="https://example.com/feed",
         filter_criteria="test_filter_criteria"
+    )
+
+def generate_test_feed(
+        items: List[Item],
+        credentials: FeedCredentials = generate_test_feed_credentials(),
+        metadata: FeedMetadata = generate_test_feed_metadata(),
+) -> Feed:
+    """
+    Generate a test feed with the given items.
+    """
+    return Feed(
+        credentials=credentials,
+        metadata=metadata,
+        items=items
     )

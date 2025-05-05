@@ -4,13 +4,13 @@ import logging
 from typing import List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 
-from rss_buddy.models import OutputType
+from rss_buddy.models import OutputType, OutputPath
 
 def generate_outputs(
     input: Any,
     template_dir: str,
     outputs: List[OutputType]
-) -> Dict[OutputType, str]:
+) -> Dict[OutputPath, str]:
     """
     Generate outputs from an input using the specified output types. The input will be passed to the template as the `input` variable.
     
@@ -27,7 +27,7 @@ def generate_outputs(
 
         template = env.get_template(output.template_name)
         rendered_output = template.render(input=input)
-        rendered_outputs[output] = rendered_output
+        rendered_outputs[output.relative_output_path] = rendered_output
 
         logging.info(f"Output generated: {output.template_name}")
     

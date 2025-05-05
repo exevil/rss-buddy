@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
 import logging
+from typing import Callable
 
-from rss_buddy.models import Feed, ProcessedFeed
-from rss_buddy.protocols import FeedItemProcessor
+from rss_buddy.models import Feed, Item, ProcessedFeed
 
 def process_feed(
-    feed: Feed,
-    item_processor: FeedItemProcessor,
-    days_lookback: int
+    feed: Feed, # The RSS feed to process
+    is_passed_filter: Callable[[Item], bool], # A function to check if an item passed the filter
+    days_lookback: int # The number of days to look back for each feed
 ) -> ProcessedFeed:
     """
     Process the RSS feed.
@@ -15,8 +15,8 @@ def process_feed(
     logging.info(f"Processing feed: {feed.metadata.title}")
 
     # Process the items
-    passed_items = []
-    failed_items = []
+    passed_item_guids = []
+    failed_item_guids = []
     for item in feed.items:
         # Skip items older than the lookback period
         lookback_date = datetime.now(timezone.utc) - timedelta(days=days_lookback)
@@ -24,18 +24,20 @@ def process_feed(
             continue
 
         # Process the item
-        processed_item = item_processor.process(item)
-        if processed_item.passed_filter:
+        passed_filter = is_passed_filter(item)
+        if passed_filter:
             logging.info(f"Passed filter: {item.title}")
-            passed_items.append(item)
+            passed_item_guids.append(item.guid)
         else:
             logging.info(f"Failed filter: {item.title}")
-            failed_items.append(item)
+            failed_item_guids.append(item.guid)
 
-    logging.info(f"Feed successfully processed: {feed.metadata.title}. {len(passed_items)} items passed, {len(failed_items)} items failed")
+    logging.info(f"Feed successfully processed: {feed.metadata.title}. {len(passed_item_guids)} items passed, {len(failed_item_guids)} items failed")
     # Return the processed feed
     return ProcessedFeed(
         feed=feed,
-        passed_items=passed_items,
-        failed_items=failed_items
+        result=ProcessedFeed.ProcessingResult(
+            passed_item_guids=passed_item_guids,
+            failed_item_guids=failed_item_guids
+        )
     )

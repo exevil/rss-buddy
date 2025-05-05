@@ -19,8 +19,11 @@ jobs:
             GLOBAL_FILTER_CRITERIA: ${{ vars.GLOBAL_FILTER_CRITERIA }}
             DAYS_LOOKBACK: ${{ vars.DAYS_LOOKBACK }}
             OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            OUTPUT_DIR: ${{ vars.OUTPUT_DIR }}
+            OUTPUT_DIR: ${{ vars.OUTPUT_DIR || './rss-buddy/output' }}
         steps:
+
+            # Prepare the environment
+            
             - uses: actions/checkout@v4
             - uses: actions/setup-python@v5
               with:
@@ -34,21 +37,41 @@ jobs:
             - name: Install dependencies
               run: cd rss-buddy && poetry install
 
+            # Load saved state
+
+            - name: Set dynamic environment variables
+              run: |
+                echo "PAGE_URL=https://$GITHUB_REPOSITORY_OWNER.github.io/${GITHUB_REPOSITORY#*/}/" >> $GITHUB_ENV
+                echo "STATE_FILE_NAME=state.json" >> $GITHUB_ENV
+
+            - name: Download previous state
+              continue-on-error: true
+              run: |
+                mkdir -p $OUTPUT_DIR
+                # Download the state file from the page URL.
+                curl -fsS -o $OUTPUT_DIR/$STATE_FILE_NAME $PAGE_URL/$STATE_FILE_NAME || echo "Previous state file not found or download failed."
+
+            # Generate feeds
+
             - name: Generate feeds
               run: cd rss-buddy && poetry run rss-buddy
               
             - name: Setup Pages
               uses: actions/configure-pages@v4
+
+            # Upload feeds to GitHub Pages
             
             - name: Upload pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
-                path: ${{ vars.OUTPUT_DIR || './rss-buddy/output' }}
+                path: ${{ env.OUTPUT_DIR }}
             
             - name: Deploy to GitHub Pages
               id: deployment
               uses: actions/deploy-pages@v4 
+
+            # Finish the workflow
             
             - name: Show GitHub Pages URL
               run: |
-                echo "Your site is live at: https://$GITHUB_REPOSITORY_OWNER.github.io/${GITHUB_REPOSITORY#*/}/" >> $GITHUB_STEP_SUMMARY
+                echo "Your site is live at: $PAGE_URL" >> $GITHUB_STEP_SUMMARY

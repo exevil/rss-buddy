@@ -35,6 +35,11 @@ def parse_cli_arguments() -> ArgNamespace:
         type=str,
         help="The directory to save the output.",
     )
+    parser.add_argument(
+        "-s", "--state-file-name",
+        type=str,
+        help="The JSON file name to load/save the state relative inside the output directory.",
+    )
     return parser.parse_args()
 
 def load_config(cli_args: Optional[ArgNamespace] = None) -> AppConfig:
@@ -112,11 +117,21 @@ def load_config(cli_args: Optional[ArgNamespace] = None) -> AppConfig:
     else:
         output_dir = "./output"
         logging.warning(f"OUTPUT_DIR is not set, using {output_dir}")
-
+    
+    # State file name.
+    if cli_args and cli_args.state_file_name:
+        state_file_name = cli_args.state_file_name
+    elif (env_state_file_name := os.getenv("STATE_FILE_NAME")):
+        state_file_name = env_state_file_name
+    else:
+        state_file_name = "state.json"
+        logging.warning(f"STATE_FILE_NAME not set, using {state_file_name} for loading and saving state")
+    
     return AppConfig(
         feed_credentials=feed_credentials,
         global_filter_criteria=global_filter_criteria,
         days_lookback=days_lookback,
         openai_api_key=openai_api_key,
         output_dir=output_dir,
+        state_file_name=state_file_name,
     )

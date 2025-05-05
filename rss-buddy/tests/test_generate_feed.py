@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import List
 
 from rss_buddy.logics.generate_feed import generate_feed
-from rss_buddy.models import Item
-from .test_utils import generate_test_item, generate_test_feed_metadata, generate_test_feed_credentials
+from rss_buddy.models import Feed, Item
+from .test_utils import generate_test_item, generate_test_feed
 
 @pytest.fixture
 def digest_item() -> Item:
@@ -38,9 +38,8 @@ def test_generate_feed(
     needed_passed_items = passed_items[:number_of_passed_items]
 
     feed = generate_feed(
-        credentials=generate_test_feed_credentials(),
-        metadata=generate_test_feed_metadata(),
-        passed_items=needed_passed_items,
+        original_feed=generate_test_feed(items=passed_items),
+        passed_item_guids=[item.guid for item in needed_passed_items],
         digest_item=digest_item
     )
 

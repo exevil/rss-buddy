@@ -1,14 +1,12 @@
-import json
 from typing import Optional
 import logging
 
 from openai import OpenAI
+from pydantic import BaseModel
 
-from rss_buddy.models import Item, ProcessedItem
-from rss_buddy.protocols import FeedItemProcessor
-from rss_buddy.utils.json_encoder import RSSBuddyJSONEncoder
+from rss_buddy.models import Item
 
-class OpenAIFeedItemProcessor(FeedItemProcessor):
+class OpenAIFeedItemProcessor:
     """
     OpenAI feed item processor.
     """
@@ -27,7 +25,7 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
         self.item_filter_criteria = item_filter_criteria
         self.client = client or OpenAI(api_key=openai_api_key)
 
-    def process(self, item: Item) -> ProcessedItem:
+    def is_passed_filter(self, item: Item) -> bool:
         # Build the filter criteria.
         filter_criteria = ""
         if self.global_filter_criteria:
@@ -37,10 +35,7 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
 
         if not filter_criteria:
             logging.warning("No filter criteria provided, item will pass the filter")
-            return ProcessedItem(
-                item=item, 
-                passed_filter=True
-            )
+            return True
 
         system_prompt = f"""
         You are an RSS feed filtering assistant. Your task is to evaluate RSS feed items against specific criteria.
@@ -62,7 +57,7 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
         user_prompt = f"""
         Evaluate this RSS feed item against the filter criteria:
         <item_to_filter>
-        {json.dumps(item.__dict__, cls=RSSBuddyJSONEncoder)}
+        {item.model_dump_json()}
         </item_to_filter>
         """
 
@@ -94,7 +89,4 @@ class OpenAIFeedItemProcessor(FeedItemProcessor):
                 logging.error(f"Invalid response from OpenAI: {completion_text}, item: {item.title} will pass the filter")
                 passed_filter = True
 
-        return ProcessedItem(
-            item=item, 
-            passed_filter=passed_filter
-        )
+        return passed_filter

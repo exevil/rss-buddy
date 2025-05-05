@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import List
 
 from rss_buddy.logics.generate_digest import generate_digest
-from rss_buddy.models import Item   
-from .test_utils import generate_test_item
+from rss_buddy.models import Item
+from .test_utils import generate_test_item, generate_test_feed
 
 @pytest.fixture
 def items() -> List[Item]:
@@ -66,8 +66,12 @@ def test_generate_digest(
 ):
     items = items[:number_of_items]
     
-    digest_item = generate_digest(items)
-    
+    digest_item = generate_digest(
+        feed=generate_test_feed(items=items),
+        item_guids=[item.guid for item in items]
+    )
+
+    assert digest_item is not None
     assert digest_item.title == expected_title
     assert digest_item.link == expected_link
     assert digest_item.pub_date == expected_pub_date

@@ -59,8 +59,17 @@ def output_types():
         )
     ]
 
-
-def test_generate_outputs():
+@pytest.mark.parametrize(
+    "output_types,expected_output",
+    [
+        (output_types(), template_output()),
+        ([], "")
+    ]
+)
+def test_generate_outputs(
+    output_types,
+    expected_output
+    ):
     # Construct the absolute path to the fixtures directory
     test_dir = os.path.dirname(os.path.abspath(__file__))
     fixtures_dir = os.path.join(test_dir, "fixtures")
@@ -68,8 +77,8 @@ def test_generate_outputs():
     rendered_outputs = generate_outputs(
         input=feed(), 
         template_dir=fixtures_dir, 
-        outputs=output_types()
+        outputs=output_types
     )
 
-    for output_type in output_types():
-        assert rendered_outputs[output_type] == template_output()
+    for output_type in output_types:
+        assert rendered_outputs[output_type.relative_output_path] == expected_output

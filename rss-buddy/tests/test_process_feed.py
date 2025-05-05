@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
-from rss_buddy.models import Feed, ProcessedFeed, ProcessedItem
+from rss_buddy.models import Feed, ProcessedFeed
 from rss_buddy.logics.process_feed import process_feed
 from .test_utils import generate_test_item, generate_test_feed_metadata, generate_test_feed_credentials
 
@@ -21,7 +21,7 @@ def feed():
     )
 
 @pytest.mark.parametrize(
-    "days_lookback, passed_filter, expected_passed_items, expected_failed_items", 
+    "days_lookback, passed_filter, expected_passed_items_count, expected_failed_items_count", 
     [
         (1, True, 1, 0),
         (3, True, 2, 0),
@@ -31,26 +31,19 @@ def feed():
         (5, False, 0, 3)
     ]
 )
-@patch("rss_buddy.logics.process_feed.FeedItemProcessor")
 def test_process_feed(
-    MockFeedItemProcessorClass, 
     feed, 
     days_lookback, 
     passed_filter, 
-    expected_passed_items, 
-    expected_failed_items
+    expected_passed_items_count, 
+    expected_failed_items_count
     ):
-    mock_instance = MockFeedItemProcessorClass.return_value
-    mock_instance.process.return_value = ProcessedItem(
-        item=generate_test_item(1, datetime.now()),
-        passed_filter=passed_filter
-    )
 
     processed_feed = process_feed(
         feed=feed,
-        item_processor=mock_instance,
+        is_passed_filter=lambda item: passed_filter,
         days_lookback=days_lookback
     )
 
-    assert len(processed_feed.passed_items) == expected_passed_items
-    assert len(processed_feed.failed_items) == expected_failed_items
+    assert len(processed_feed.result.passed_item_guids) == expected_passed_items_count
+    assert len(processed_feed.result.failed_item_guids) == expected_failed_items_count
