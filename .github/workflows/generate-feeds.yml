@@ -54,12 +54,13 @@ jobs:
             # Generate feeds
 
             - name: Generate feeds
-              run: cd rss-buddy && poetry run rss-buddy
+              working-directory: rss-buddy
+              run: poetry run rss-buddy
               
+            # Upload feeds to GitHub Pages
+
             - name: Setup Pages
               uses: actions/configure-pages@v4
-
-            # Upload feeds to GitHub Pages
             
             - name: Upload pages artifact
               uses: actions/upload-pages-artifact@v3
