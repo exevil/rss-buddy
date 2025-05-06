@@ -17,7 +17,7 @@ def generate_outputs(
     Returns:
         Dict[Output, str]: A dictionary mapping output types to their rendered content.
     """
-    logging.info(f"Generating outputs for input: {input}")
+    logging.info(f"Generating outputs for {len(outputs)} outputs")
 
     env = Environment(loader=FileSystemLoader(template_dir))
 

@@ -27,7 +27,7 @@ class StateManager:
             with open(self._file_path, "r") as f:
                 self._state = State.model_validate_json(f.read())
         else:
-            logging.warning(f"State not found at {self._file_path}. Starting with empty state.")
+            logging.warning(f"State not found at \"{self._file_path}\". Starting with empty state.")
             self._state = State(last_processed_feeds={})
 
     def item_previous_processing_result(
@@ -44,17 +44,17 @@ class StateManager:
         """
         feed_processing_result = self._state.last_processed_feeds.get(feed_link)
         if not feed_processing_result:
-            logging.info(f"Feed {feed_link} has not been previously processed.")
+            logging.info(f"Feed \"{feed_link}\" has not been previously processed.")
             return None
         
         if item_guid in feed_processing_result.passed_item_guids:
-            logging.info(f"Item {item_guid} has been previously processed and passed filter.")
+            logging.info(f"Item \"{item_guid}\" has been previously processed and passed filter.")
             return True
         elif item_guid in feed_processing_result.failed_item_guids:
-            logging.info(f"Item {item_guid} has been previously processed and failed filter.")
+            logging.info(f"Item \"{item_guid}\" has been previously processed and failed filter.")
             return False
         else:
-            logging.info(f"Item {item_guid} has not been previously processed.")
+            logging.info(f"Item \"{item_guid}\" has not been previously processed.")
             return None
 
     def update_state(
@@ -73,4 +73,4 @@ class StateManager:
         """
         with open(self._file_path, "w") as f:
             f.write(self._state.model_dump_json())
-            logging.info(f"State written to {self._file_path}.")
+            logging.info(f"State written to \"{self._file_path}\".")

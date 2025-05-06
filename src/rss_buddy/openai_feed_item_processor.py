@@ -72,7 +72,7 @@ class OpenAIFeedItemProcessor:
         # Validate the response
         completion_text = ""
         if not completion.choices[0].message.content:
-            logging.error(f"No content in the response from OpenAI, item: {item.title} will pass the filter")
+            logging.error(f"No content in the response from OpenAI, item: \"{item.title}\" will pass the filter")
             completion_text = "1"
         else:
             completion_text = completion.choices[0].message.content.strip()
@@ -86,7 +86,7 @@ class OpenAIFeedItemProcessor:
                 passed_filter = True
             case _:
                 # If the response is not 0 or 1, we will assume that the item will pass the filter
-                logging.error(f"Invalid response from OpenAI: {completion_text}, item: {item.title} will pass the filter")
+                logging.error(f"Invalid response from OpenAI: \"{completion_text}\", item: \"{item.title}\" will pass the filter")
                 passed_filter = True
 
         return passed_filter

@@ -91,7 +91,7 @@ class Main:
             # Generate digest.
             digest = generate_digest(
                 feed=feed,
-                item_guids=processed_feed.result.passed_item_guids,
+                item_guids=processed_feed.result.failed_item_guids,
             )
             # Generate output feed.
             output_feed = generate_feed(
@@ -137,10 +137,10 @@ class Main:
         # Write outputs.
         for output_path, output_content in outputs.items():
             save_path = os.path.join(output_dir, output_path)
-            logging.info(f"Saving output: {save_path}")
+            logging.info(f"Saving output to \"{save_path}\"")
             with open(save_path, "w") as f:
                 f.write(output_content)
-            logging.info(f"Output saved: {save_path}")
+            logging.info(f"Output saved to \"{save_path}\"")
         # Write state.
         state_manager.write()
 
