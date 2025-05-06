@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime
+import textwrap
 from typing import List
 
 from rss_buddy.generate_digest import generate_digest
@@ -22,36 +23,39 @@ def items() -> List[Item]:
             "Digest of 1 item", 
             "", 
             datetime(2025, 4, 1), 
-            (
-                "<a href=\"https://example.com/test-item-1\">Test Item 1</a>"
-                "Test Description 1"
-            )
+            textwrap.dedent("""
+            <a href=\"https://example.com/test-item-1\">Test Item 1</a>
+            <p>Test Description 1</p>
+            """)
         ),
         (
             2, 
             "Digest of 2 items", 
             "", 
             datetime(2025, 4, 2), 
-            (
-                "<a href=\"https://example.com/test-item-1\">Test Item 1</a>"
-                "Test Description 1"
-                "<a href=\"https://example.com/test-item-2\">Test Item 2</a>"
-                "Test Description 2"
-            )
+            textwrap.dedent("""
+            <a href=\"https://example.com/test-item-1\">Test Item 1</a>
+            <p>Test Description 1</p>
+                            
+            <a href=\"https://example.com/test-item-2\">Test Item 2</a>
+            <p>Test Description 2</p>
+            """)
         ),
         (
             3, 
             "Digest of 3 items", 
             "", 
             datetime(2025, 4, 3), 
-            (
-                "<a href=\"https://example.com/test-item-1\">Test Item 1</a>"
-                "Test Description 1"
-                "<a href=\"https://example.com/test-item-2\">Test Item 2</a>"
-                "Test Description 2"
-                "<a href=\"https://example.com/test-item-3\">Test Item 3</a>"
-                "Test Description 3"
-            )
+            textwrap.dedent("""
+            <a href=\"https://example.com/test-item-1\">Test Item 1</a>
+            <p>Test Description 1</p>
+                            
+            <a href=\"https://example.com/test-item-2\">Test Item 2</a>
+            <p>Test Description 2</p>
+                            
+            <a href=\"https://example.com/test-item-3\">Test Item 3</a>
+            <p>Test Description 3</p>
+            """)
         )
     ]
 )

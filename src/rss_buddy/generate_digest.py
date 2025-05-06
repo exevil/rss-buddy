@@ -1,3 +1,5 @@
+import re
+import textwrap
 from typing import List, Optional
 import logging
 
@@ -24,15 +26,20 @@ def generate_digest(
             logging.warning(f"Item with GUID {item_guid} not found in feed. Skipping.")
             continue
         items.append(item)
-        # Truncate description to 100 characters
+        # Remove description <p> tags if present to prevent content being cut off
         item_description = item.description
-        if len(item_description) > 100:
-            item_description = item_description[:100] + "..."
+        item_description = re.sub(r'</?p>', '', item_description)
+        # Truncate description when too long
+        max_description_length = 200
+        if len(item_description) > max_description_length:
+            item_description = item_description[:max_description_length] + "..."
         
-        description += f"""
+        description += textwrap.dedent(
+            f"""
             <a href=\"{item.link}\">{item.title}</a>
-            {item_description}
-        """
+            <p>{item_description}</p>
+            """
+        )
     
     if not items:
         logging.warning("No items to generate digest from. Skipping.")
