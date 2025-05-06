@@ -1,7 +1,7 @@
 from typing import List, Optional
 import logging
 
-from rss_buddy.models import Feed, FeedCredentials, FeedMetadata, Item, ItemGUID
+from models import Feed, FeedCredentials, FeedMetadata, Item, ItemGUID
 
 def generate_feed(
     original_feed: Feed, # The original feed to generate the output for

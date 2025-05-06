@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel
 
-from rss_buddy.models import ItemGUID, ProcessedFeed
+from models import ItemGUID, ProcessedFeed
 
 # Original feed link.
 OriginalFeedLink = str

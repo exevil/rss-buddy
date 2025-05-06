@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from rss_buddy.logics.openai_feed_item_processor import OpenAIFeedItemProcessor
+from rss_buddy.openai_feed_item_processor import OpenAIFeedItemProcessor
 from .test_utils import generate_test_item
 
 sample_item = generate_test_item(1)

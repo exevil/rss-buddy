@@ -1,7 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 
-from rss_buddy.models import Item, FeedMetadata, FeedCredentials, Feed
+from models import Item, FeedMetadata, FeedCredentials, Feed
 
 def generate_test_item(
         index: int,

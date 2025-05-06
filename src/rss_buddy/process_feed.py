@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 from typing import Callable
 
-from rss_buddy.models import Feed, Item, ProcessedFeed
+from models import Feed, Item, ProcessedFeed
 
 def process_feed(
     feed: Feed, # The RSS feed to process

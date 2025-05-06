@@ -1,7 +1,7 @@
 from typing import List, Optional
 import logging
-from datetime import datetime
-from rss_buddy.models import Item, Feed, ItemGUID
+
+from models import Item, Feed, ItemGUID
 
 def generate_digest(
         feed: Feed, # The feed to generate the digest for

@@ -2,8 +2,8 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
-from rss_buddy.models import Feed, ProcessedFeed
-from rss_buddy.logics.process_feed import process_feed
+from models import Feed, ProcessedFeed
+from rss_buddy.process_feed import process_feed
 from .test_utils import generate_test_item, generate_test_feed_metadata, generate_test_feed_credentials
 
 @pytest.fixture

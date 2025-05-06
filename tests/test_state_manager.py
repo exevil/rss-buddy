@@ -4,8 +4,8 @@ import pytest
 from unittest.mock import patch, mock_open
 import pydantic
 
-from rss_buddy.logics.state_manager import StateManager, State
-from rss_buddy.models import ProcessedFeed, ItemGUID
+from rss_buddy.state_manager import StateManager, State
+from models import ProcessedFeed, ItemGUID
 
 def feed_url():
     return "https://example.com/feed"

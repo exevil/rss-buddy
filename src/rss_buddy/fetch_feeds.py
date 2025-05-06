@@ -4,7 +4,7 @@ import logging
 from typing import List
 from email.utils import parsedate_to_datetime
 
-from rss_buddy.models import Feed, FeedMetadata, FeedCredentials, Item
+from models import Feed, FeedMetadata, FeedCredentials, Item
 
 def fetch_feeds(
     credentials: List[FeedCredentials],

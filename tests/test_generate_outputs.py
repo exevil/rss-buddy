@@ -2,8 +2,8 @@ import pytest
 import os
 from datetime import datetime
 
-from rss_buddy.models import Feed, OutputType
-from rss_buddy.logics.generate_outputs import generate_outputs
+from models import Feed, OutputType
+from rss_buddy.generate_outputs import generate_outputs
 from .test_utils import generate_test_item, generate_test_feed_metadata, generate_test_feed_credentials
 
 def feed():

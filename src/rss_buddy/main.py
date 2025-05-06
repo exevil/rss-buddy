@@ -2,15 +2,16 @@ import os
 import logging
 from typing import Dict, Callable
 
-from rss_buddy.config import parse_cli_arguments, load_config
-from rss_buddy.logics.fetch_feeds import fetch_feeds
-from rss_buddy.logics.process_feed import process_feed
-from rss_buddy.logics.openai_feed_item_processor import OpenAIFeedItemProcessor
-from rss_buddy.logics.generate_digest import generate_digest
-from rss_buddy.logics.generate_outputs import generate_outputs
-from rss_buddy.logics.generate_feed import generate_feed
-from rss_buddy.logics.state_manager import StateManager
-from rss_buddy.models import AppConfig, Feed, OutputType, Item, OutputPath
+from fetch_feeds import fetch_feeds
+from process_feed import process_feed
+from openai_feed_item_processor import OpenAIFeedItemProcessor
+from generate_outputs import generate_outputs
+from generate_feed import generate_feed
+from generate_digest import generate_digest
+from state_manager import StateManager
+
+from models import AppConfig, Feed, OutputType, Item, OutputPath
+from config import load_config
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,7 +42,6 @@ class Main:
         template_dir = os.path.abspath(
             os.path.join(
                 os.path.dirname(__file__),
-                "..",
                 "..",
                 "templates",
             )

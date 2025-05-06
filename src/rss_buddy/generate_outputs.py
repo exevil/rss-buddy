@@ -4,7 +4,7 @@ import logging
 from typing import List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 
-from rss_buddy.models import OutputType, OutputPath
+from models import OutputType, OutputPath
 
 def generate_outputs(
     input: Any,

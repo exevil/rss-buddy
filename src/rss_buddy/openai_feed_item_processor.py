@@ -4,7 +4,7 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel
 
-from rss_buddy.models import Item
+from models import Item
 
 class OpenAIFeedItemProcessor:
     """

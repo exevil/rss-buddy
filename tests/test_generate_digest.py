@@ -2,8 +2,8 @@ import pytest
 from datetime import datetime
 from typing import List
 
-from rss_buddy.logics.generate_digest import generate_digest
-from rss_buddy.models import Item
+from rss_buddy.generate_digest import generate_digest
+from models import Item
 from .test_utils import generate_test_item, generate_test_feed
 
 @pytest.fixture

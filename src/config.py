@@ -4,7 +4,7 @@ import logging
 from typing import Optional, List, Dict
 from argparse import ArgumentParser, Namespace as ArgNamespace
 from dotenv import load_dotenv
-from rss_buddy.models import FeedCredentials, AppEnvSettings, AppConfig
+from models import FeedCredentials, AppEnvSettings, AppConfig
 
 def parse_cli_arguments() -> ArgNamespace:
     """

@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from rss_buddy.models import FeedCredentials
-from rss_buddy.logics.fetch_feeds import fetch_feeds
+from models import FeedCredentials
+from rss_buddy.fetch_feeds import fetch_feeds
 
 def input_credentials():
     return [
