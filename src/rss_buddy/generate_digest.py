@@ -29,10 +29,10 @@ def generate_digest(
         if len(item_description) > 100:
             item_description = item_description[:100] + "..."
         
-        description += (
-            f"<a href=\"{item.link}\">{item.title}</a>"
-            f"{item_description}"
-        )
+        description += f"""
+            <a href=\"{item.link}\">{item.title}</a>
+            {item_description}
+        """
     
     if not items:
         logging.warning("No items to generate digest from. Skipping.")
