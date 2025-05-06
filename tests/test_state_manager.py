@@ -1,8 +1,5 @@
-import json
-
 import pytest
 from unittest.mock import patch, mock_open
-import pydantic
 
 from rss_buddy.state_manager import StateManager, State
 from models import ProcessedFeed, ItemGUID

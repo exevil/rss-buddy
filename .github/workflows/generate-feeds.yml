@@ -35,7 +35,7 @@ jobs:
               run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
             - name: Install dependencies
-              run: cd rss-buddy && poetry install
+              run: poetry install
 
             # Load saved state
 
@@ -54,7 +54,6 @@ jobs:
             # Generate feeds
 
             - name: Generate feeds
-              working-directory: rss-buddy
               run: poetry run rss-buddy
               
             # Upload feeds to GitHub Pages
