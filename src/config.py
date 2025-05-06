@@ -99,7 +99,7 @@ def load_config() -> AppConfig:
         openai_api_key=openai_api_key,
         output_dir=cli_args.output_dir
             or env_settings.output_dir
-            or "./output",
+            or "output",
         state_file_name=cli_args.state_file_name
             or env_settings.state_file_name
             or "state.json",

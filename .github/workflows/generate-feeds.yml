@@ -19,7 +19,7 @@ jobs:
             GLOBAL_FILTER_CRITERIA: ${{ vars.GLOBAL_FILTER_CRITERIA }}
             DAYS_LOOKBACK: ${{ vars.DAYS_LOOKBACK }}
             OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            OUTPUT_DIR: ${{ vars.OUTPUT_DIR || './output' }}
+            OUTPUT_DIR: ${{ vars.OUTPUT_DIR || 'output' }}
         steps:
 
             # Prepare the environment

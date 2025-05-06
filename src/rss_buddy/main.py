@@ -2,13 +2,13 @@ import os
 import logging
 from typing import Dict, Callable
 
-from fetch_feeds import fetch_feeds
-from process_feed import process_feed
-from openai_feed_item_processor import OpenAIFeedItemProcessor
-from generate_outputs import generate_outputs
-from generate_feed import generate_feed
-from generate_digest import generate_digest
-from state_manager import StateManager
+from rss_buddy.fetch_feeds import fetch_feeds
+from rss_buddy.process_feed import process_feed
+from rss_buddy.openai_feed_item_processor import OpenAIFeedItemProcessor
+from rss_buddy.generate_outputs import generate_outputs
+from rss_buddy.generate_feed import generate_feed
+from rss_buddy.generate_digest import generate_digest
+from rss_buddy.state_manager import StateManager
 
 from models import AppConfig, Feed, OutputType, Item, OutputPath
 from config import load_config
@@ -47,10 +47,14 @@ class Main:
             )
         )
 
+        # Normalize and prepare output directory.
+        output_dir = os.path.abspath(self.config.output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+
         # Load state.
         state_manager = StateManager(
             file_path=os.path.join(
-                self.config.output_dir,
+                output_dir,
                 self.config.state_file_name,
             )
         )
@@ -129,9 +133,8 @@ class Main:
         for subdict in feed_outputs.values():
             merged_feed_outputs.update(subdict)
         outputs = {**merged_feed_outputs, **index_outputs}
+
         # Write outputs.
-        output_dir = self.config.output_dir
-        os.makedirs(output_dir, exist_ok=True)
         for output_path, output_content in outputs.items():
             save_path = os.path.join(output_dir, output_path)
             logging.info(f"Saving output: {save_path}")
