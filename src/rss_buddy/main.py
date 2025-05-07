@@ -56,7 +56,9 @@ class Main:
             file_path=os.path.join(
                 output_dir,
                 self.config.state_file_name,
-            )
+            ),
+            feed_credentials=self.config.feed_credentials,
+            global_filter_criteria=self.config.global_filter_criteria,
         )
 
         # Process feeds.
@@ -85,7 +87,7 @@ class Main:
             )
             # Update state.
             state_manager.update_state(
-                feed_link=feed.credentials.url,
+                feed_credentials=feed.credentials,
                 processing_result=processed_feed.result,
             )
             # Generate digest.
