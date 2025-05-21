@@ -80,11 +80,11 @@ class StateManager:
             # Check if the feed is in the state
             if feed_credentials.url not in state.processed_feeds:
                 logging.warning(f"Feed \"{feed_credentials.url}\" not found in state. Removing from state.")
-                del state.processed_feeds[feed_credentials.url]
+                state.processed_feeds.pop(feed_credentials.url, None)
             # Check if the feed filter criteria is changed
             if feed_credentials.filter_criteria != state.processed_feeds[feed_credentials.url].filter_criteria:
                 logging.warning(f"Feed filter criteria has changed for \"{feed_credentials.url}\". Removing from state.")
-                del state.processed_feeds[feed_credentials.url]
+                state.processed_feeds.pop(feed_credentials.url, None)
         
         # Return the original state
         return state
