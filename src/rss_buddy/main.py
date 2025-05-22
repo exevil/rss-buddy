@@ -7,7 +7,6 @@ from rss_buddy.process_feed import process_feed
 from rss_buddy.openai_feed_item_processor import OpenAIFeedItemProcessor
 from rss_buddy.generate_outputs import generate_outputs
 from rss_buddy.generate_feed import generate_feed
-from rss_buddy.generate_digest import generate_digest
 from rss_buddy.state_manager import StateManager
 
 from models import AppConfig, Feed, OutputType, Item, OutputPath
@@ -79,27 +78,19 @@ class Main:
                     return previous_result
                 else:
                     return processor.is_passed_filter(item)
-                
+            # Process feed.
             processed_feed = process_feed(
                 feed=feed,
                 is_passed_filter=is_passed_filter,
                 days_lookback=self.config.days_lookback,
-            )
+            )   
             # Update state.
             state_manager.update_state(
-                feed_credentials=feed.credentials,
-                processing_result=processed_feed.result,
-            )
-            # Generate digest.
-            digest = generate_digest(
-                feed=feed,
-                item_guids=processed_feed.result.failed_item_guids,
+                processed_feed=processed_feed,
             )
             # Generate output feed.
             output_feed = generate_feed(
-                original_feed=feed,
-                passed_item_guids=processed_feed.result.passed_item_guids,
-                digest_item=digest,
+                processed_feed=processed_feed,
             )
             # Generate feed outputs.
             output_name: OutputName = feed.metadata.title.replace(" ", "-")
@@ -108,11 +99,11 @@ class Main:
                 template_dir=template_dir,
                 outputs=[
                     OutputType(
-                        template_name="feed.html.j2",
+                        template_name="feed.html",
                         relative_output_path=f"{output_name}.html",
                     ),
                     OutputType(
-                        template_name="feed.rss.j2",
+                        template_name="feed.rss",
                         relative_output_path=f"{output_name}.rss",
                     ),
                 ],
@@ -125,7 +116,7 @@ class Main:
             template_dir=template_dir,
             outputs=[
                 OutputType(
-                    template_name="index.html.j2",
+                    template_name="index.html",
                     relative_output_path="index.html",
                 ),
             ],

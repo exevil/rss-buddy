@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ input.feed.metadata.title }}</title>
+    <meta charset="UTF-8">
+    <style> /* Add some basic styling */ </style>
+</head>
+<body>
+    <h1>{{ input.feed.metadata.title }}</h1>
+    <p>{{ input.feed.metadata.description }}</p>
+    <ul>
+        {% for item in input.items %}
+        {% if item.__class__.__name__ == 'Item' %}
+        <li>
+            <a href="{{ item.link }}">{{ item.title }}</a>
+            <p>{{ item.description }}</p>
+            {% if item.pub_date %} ({{ item.pub_date }}) {% endif %}
+            {% if item.tag %} [{{ item.tag }}] {% endif %}
+        </li>
+        {% elif item.__class__.__name__ == 'DigestItem' %}
+        <li>
+            <h2>{{ item.title }}</h2>
+            <p>{{ item.description }}</p>
+            <li>
+                {% for digest_item in item.items %}
+                <a href="{{ digest_item.link }}">{{ digest_item.title }}</a>
+                <p>{{ digest_item.description }}</p>
+                {% if digest_item.pub_date %} 
+                <p>{{ digest_item.pub_date }}</p>
+                {% endif %}
+                {% endfor %}
+            </li>
+        </li>
+        {% else %}
+        <li>No items in this feed.</li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+</body>
+</html>

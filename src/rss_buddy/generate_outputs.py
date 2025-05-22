@@ -2,7 +2,7 @@ import os
 import logging
 
 from typing import List, Dict, Any
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from models import OutputType, OutputPath
 
@@ -19,7 +19,10 @@ def generate_outputs(
     """
     logging.info(f"Generating outputs for {len(outputs)} outputs")
 
-    env = Environment(loader=FileSystemLoader(template_dir))
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "xml", "rss"]),
+    )
 
     rendered_outputs = {}
     for output in outputs:

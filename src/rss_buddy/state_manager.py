@@ -18,7 +18,8 @@ class State(BaseModel):
         The data for a feed.
         """
         filter_criteria: Optional[str] # The filter criteria of the feed
-        processing_result: ProcessedFeed.ProcessingResult # The processing result of the feed
+        passed_item_guids: List[ItemGUID] # A list of item GUIDs that passed the filter
+        failed_item_guids: List[ItemGUID] # A list of item GUIDs that failed the filter
 
     global_filter_criteria: Optional[str] = None # The global filter criteria
     processed_feeds: Dict[OriginalFeedLink, FeedData] = {} # Processed items for each feed
@@ -53,7 +54,11 @@ class StateManager:
         # Load or create the state
         if os.path.exists(file_path):
             with open(file_path, "r") as f:
-                return State.model_validate_json(f.read())
+                try:
+                    return State.model_validate_json(f.read())
+                except Exception as e:
+                    logging.warning(f"Failed to load state from {file_path}: {e}. Creating new state file.")
+                    return None
         
         return None
 
@@ -107,10 +112,10 @@ class StateManager:
             logging.info(f"Feed \"{feed_link}\" has not been previously processed.")
             return None
         
-        if item_guid in feed_processing_result.processing_result.passed_item_guids:
+        if item_guid in feed_processing_result.passed_item_guids:
             logging.info(f"Item \"{item_guid}\" has been previously processed and passed filter.")
             return True
-        elif item_guid in feed_processing_result.processing_result.failed_item_guids:
+        elif item_guid in feed_processing_result.failed_item_guids:
             logging.info(f"Item \"{item_guid}\" has been previously processed and failed filter.")
             return False
         else:
@@ -119,15 +124,15 @@ class StateManager:
 
     def update_state(
             self,
-            feed_credentials: FeedCredentials,
-            processing_result: ProcessedFeed.ProcessingResult,
+            processed_feed: ProcessedFeed,
         ):
         """
         Update the state with the new processing result.
         """
-        self._state.processed_feeds[feed_credentials.url] = State.FeedData(
-            filter_criteria=feed_credentials.filter_criteria,
-            processing_result=processing_result,
+        self._state.processed_feeds[processed_feed.feed.credentials.url] = State.FeedData(
+            filter_criteria=processed_feed.feed.credentials.filter_criteria,
+            passed_item_guids=processed_feed.passed_item_guids,
+            failed_item_guids=processed_feed.failed_item_guids,
         )
 
     def write(self):

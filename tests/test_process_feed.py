@@ -45,5 +45,5 @@ def test_process_feed(
         days_lookback=days_lookback
     )
 
-    assert len(processed_feed.result.passed_item_guids) == expected_passed_items_count
-    assert len(processed_feed.result.failed_item_guids) == expected_failed_items_count
+    assert len(processed_feed.passed_item_guids) == expected_passed_items_count
+    assert len(processed_feed.failed_item_guids) == expected_failed_items_count

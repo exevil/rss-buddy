@@ -37,8 +37,6 @@ def process_feed(
     # Return the processed feed
     return ProcessedFeed(
         feed=feed,
-        result=ProcessedFeed.ProcessingResult(
-            passed_item_guids=passed_item_guids,
-            failed_item_guids=failed_item_guids
-        )
+        passed_item_guids=passed_item_guids,
+        failed_item_guids=failed_item_guids
     )

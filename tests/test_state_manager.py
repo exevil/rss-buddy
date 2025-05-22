@@ -2,7 +2,8 @@ import pytest
 from unittest.mock import patch, mock_open
 from typing import Optional
 from rss_buddy.state_manager import StateManager, State
-from models import ProcessedFeed, ItemGUID, FeedCredentials
+from models import ItemGUID, FeedCredentials, ProcessedFeed, Feed, FeedMetadata
+from tests.test_utils import generate_test_feed, generate_test_item
 
 def feed_url(id: int):
     return f"https://example.com/feed{id}"
@@ -13,14 +14,12 @@ def filter_criteria(id: int):
 def default_feed_data(id: int):
     return State.FeedData(
         filter_criteria=filter_criteria(id),
-        processing_result=ProcessedFeed.ProcessingResult(
-            passed_item_guids=[
-                ItemGUID(f"test-guid-1"),
-            ],
-            failed_item_guids=[
-                ItemGUID(f"test-guid-2"),
-            ],
-        ),
+        passed_item_guids=[
+            ItemGUID(f"test-guid-1"),
+        ],
+        failed_item_guids=[
+            ItemGUID(f"test-guid-2"),
+        ],
     )
 
 def default_processed_feeds():
@@ -146,36 +145,45 @@ def test_state_manager_item_previous_processing_result(
     assert previous_processing_result == expected_result
 
 @pytest.mark.parametrize(
-    "feed_credentials, processing_result",
+    "processed_feed",
     [
-        (
-            default_feed_credentials(1),
-            default_feed_data(1).processing_result,
-        ),
-        (
-            default_feed_credentials(2),
-            ProcessedFeed.ProcessingResult(
-                passed_item_guids=[],
-                failed_item_guids=[],
+        ProcessedFeed(
+            feed=generate_test_feed(
+                items=[
+                    generate_test_item(1),
+                    generate_test_item(2),
+                ],
             ),
+            passed_item_guids=[
+                generate_test_item(1).guid,
+            ],
+            failed_item_guids=[
+                generate_test_item(2).guid,
+            ],
+        ),
+        ProcessedFeed(
+            feed=generate_test_feed(
+                items=[],
+            ),
+            passed_item_guids=[],
+            failed_item_guids=[],
         ),
     ]
 )
 def test_state_manager_update_state(
-        feed_credentials,
-        processing_result,
+        processed_feed,
     ):
     state_manager = empty_state_manager()
     state_manager._state = default_state()
 
     state_manager.update_state(
-        feed_credentials=feed_credentials,
-        processing_result=processing_result,
+        processed_feed=processed_feed,
     )
 
-    assert state_manager._state.processed_feeds[feed_credentials.url] == State.FeedData(
-        filter_criteria=feed_credentials.filter_criteria,
-        processing_result=processing_result,
+    assert state_manager._state.processed_feeds[processed_feed.feed.credentials.url] == State.FeedData(
+        filter_criteria=processed_feed.feed.credentials.filter_criteria,
+        passed_item_guids=processed_feed.passed_item_guids,
+        failed_item_guids=processed_feed.failed_item_guids,
     )
 
 @patch("builtins.open", new_callable=mock_open)

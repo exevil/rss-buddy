@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ItemGUID = str
 # Path to the output file.
 OutputPath = str
+
+### Item
 
 class Item(BaseModel):
     """
@@ -17,6 +19,20 @@ class Item(BaseModel):
     pub_date: datetime # The date and time the item was published.
     description: str # The full content of the item.
     guid: str # The unique identifier for the item.
+
+class DigestItem(BaseModel):
+    """
+    Digest of items in an RSS feed.
+    """
+    title: str # The title of the digest.
+    description: str # The description of the digest.
+    pub_date: datetime # The date and time the digest was published.
+    items: List[Item] # A list of items in the digest.
+    guid: str # The unique identifier for the digest.
+
+OutputItem = Union[Item, DigestItem]
+
+### Feed
 
 class FeedCredentials(BaseModel):
     """
@@ -48,12 +64,18 @@ class ProcessedFeed(BaseModel):
     """
     Processed RSS feed with its essential properties.
     """
-    class ProcessingResult(BaseModel):
-        passed_item_guids: List[ItemGUID] # A list of items that passed the filter.
-        failed_item_guids: List[ItemGUID] # A list of items that failed the filter.
-
     feed: Feed # The original RSS feed.
-    result: ProcessingResult # The result of the processing.
+    passed_item_guids: List[ItemGUID] # GUIDs of items that passed the filter.
+    failed_item_guids: List[ItemGUID] # GUIDs of items that failed the filter.
+
+class OutputFeed(BaseModel):
+    """
+    Output RSS feed.
+    """
+    feed: Feed # The original RSS feed.
+    items: List[OutputItem] # A list of the output items in the feed.
+
+### Output
 
 class OutputType(BaseModel):
     """
@@ -65,6 +87,8 @@ class OutputType(BaseModel):
     model_config = ConfigDict(
         frozen = True,
     )
+
+### App
 
 class AppEnvSettings(BaseSettings):
     """

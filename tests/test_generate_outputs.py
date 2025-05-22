@@ -49,12 +49,12 @@ def output_types():
     return [
         # Normal
         OutputType(
-            template_name="test_template.test.j2",
+            template_name="test_template.test",
             relative_output_path="test_output.test"
         ),
         # Different output path
         OutputType(
-            template_name="test_template.test.j2",
+            template_name="test_template.test",
             relative_output_path="test_output2.test"
         )
     ]
