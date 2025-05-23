@@ -1,38 +1,38 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
     <title>{{ input.feed.metadata.title }}</title>
     <link>{{ input.feed.metadata.link }}</link>
     <description>{{ input.feed.metadata.description }}</description>
     <language>{{ input.feed.metadata.language }}</language>
-    <lastBuildDate>{{ input.feed.metadata.last_build_date }}</lastBuildDate>
-    <ttl>{{ input.feed.metadata.ttl }}</ttl>
+    <lastBuildDate>{{ input.feed.metadata.last_build_date | rfc822 }}</lastBuildDate>
     <generator>RSS Buddy</generator>
-    <pubDate>{{ input.feed.metadata.last_build_date }}</pubDate>
+    <pubDate>{{ input.feed.metadata.last_build_date | rfc822 }}</pubDate>
 
     {% for item in input.items %}
     {% if item.__class__.__name__ == 'Item' %}
     <item>
         <title>{{ item.title }}</title>
-        <description>{{ item.description }}</description>
+        <description><![CDATA[
+        {{ item.description }}
+        ]]></description>
         <link>{{ item.link }}</link>
         <guid isPermaLink="true">{{ item.link }}</guid>
         {% if item.pub_date %}
-        <pubDate>{{ item.pub_date }}</pubDate>
+        <pubDate>{{ item.pub_date | rfc822 }}</pubDate>
         {% endif %}
     </item>
     {% elif item.__class__.__name__ == 'DigestItem' %}
     <item>
         <title>{{ item.title }}</title>
-        <description>
+        <description><![CDATA[
         {% for digest_item in item.items %}
-        <strong>{{ digest_item.title }}</strong><br/>
+        <a href="{{ digest_item.link }}">{{ digest_item.title }}</a><br/>
         {{ digest_item.description[:200] }}{% if digest_item.description|length > 200 %}...{% endif %}<br/>
-        {{ digest_item.pub_date }}<br/><br/>
+        {{ digest_item.pub_date | rfc822 }}<br/><br/>
         {% endfor %}
-        </description>
-        <link>{{ item.link }}</link>
-        <guid isPermaLink="true">{{ item.link }}</guid>
+        ]]></description>
+        <guid isPermaLink="false">{{ item.guid }}</guid>
     </item>
     {% endif %}
     {% endfor %}

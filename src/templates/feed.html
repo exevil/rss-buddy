@@ -21,15 +21,17 @@
         <li>
             <h2>{{ item.title }}</h2>
             <p>{{ item.description }}</p>
-            <li>
+            <ul>
                 {% for digest_item in item.items %}
-                <a href="{{ digest_item.link }}">{{ digest_item.title }}</a>
-                <p>{{ digest_item.description }}</p>
-                {% if digest_item.pub_date %} 
-                <p>{{ digest_item.pub_date }}</p>
-                {% endif %}
+                <li>
+                    <a href="{{ digest_item.link }}">{{ digest_item.title }}</a>
+                    <p>{{ digest_item.description }}</p>
+                    {% if digest_item.pub_date %} 
+                    <p>{{ digest_item.pub_date }}</p>
+                    {% endif %}
+                </li>
                 {% endfor %}
-            </li>
+            </ul>
         </li>
         {% else %}
         <li>No items in this feed.</li>

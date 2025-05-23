@@ -8,7 +8,6 @@ Metadata:
 - {{ input.metadata.description }}
 - {{ input.metadata.language }}
 - {{ input.metadata.last_build_date }}
-- {{ input.metadata.ttl }}
 
 Items:{% for item in input.items %}
 - {{ item.title }}

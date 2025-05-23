@@ -29,8 +29,7 @@ def generate_test_feed_metadata(
         link="https://example.com/feed",
         description="Test Feed Description",
         language="en-us",
-        last_build_date=last_build_date if last_build_date else datetime.now(),
-        ttl=60,
+        last_build_date=last_build_date if last_build_date else datetime.now()
     )
 
 def generate_test_feed_credentials() -> FeedCredentials:

@@ -50,7 +50,6 @@ class FeedMetadata(BaseModel):
     description: str # The description of the feed.
     language: str # The language of the feed.
     last_build_date: datetime # The date and time the feed was last built.
-    ttl: int # The time to live of the feed.
 
 class Feed(BaseModel):
     """

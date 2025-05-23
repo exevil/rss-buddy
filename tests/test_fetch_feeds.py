@@ -26,7 +26,6 @@ def response_text():
             <description>Test Description</description>
             <language>en</language>
             <lastBuildDate>Fri, 01 Jan 2021 00:00:00 GMT</lastBuildDate>
-            <ttl>1800</ttl>
             <item>
                 <title>Test Item 1</title>
                 <link>https://www.example.com/test1</link>
@@ -67,7 +66,6 @@ def test_fetch_feeds(mock_get):
         assert feed.metadata.description == "Test Description"
         assert feed.metadata.language == "en"
         assert feed.metadata.last_build_date == datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc)
-        assert feed.metadata.ttl == 1800
 
         assert len(feed.items) == 2
 

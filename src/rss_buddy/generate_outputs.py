@@ -2,9 +2,17 @@ import os
 import logging
 
 from typing import List, Dict, Any
+from datetime import datetime
+from email.utils import format_datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from models import OutputType, OutputPath
+
+def _rfc822(date: datetime) -> str:
+    """
+    Format a datetime object as an RFC 822 date string.
+    """
+    return format_datetime(date)
 
 def generate_outputs(
     input: Any,
@@ -20,9 +28,10 @@ def generate_outputs(
     logging.info(f"Generating outputs for {len(outputs)} outputs")
 
     env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "xml", "rss"]),
+        loader=FileSystemLoader(template_dir)
     )
+    # Add a custom filters to the environment
+    env.filters["rfc822"] = _rfc822
 
     rendered_outputs = {}
     for output in outputs:

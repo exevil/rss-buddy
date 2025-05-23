@@ -29,7 +29,6 @@ Metadata:
 - Test Feed Description
 - en-us
 - 2025-04-10 00:00:00
-- 60
 
 Items:
 - Test Item 1

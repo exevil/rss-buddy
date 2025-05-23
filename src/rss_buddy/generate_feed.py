@@ -21,23 +21,26 @@ def generate_feed(
     current_date: Optional[date] = None
     daily_digest_items: List[Item] = []
 
-    def append_digest(
-            current_date: date,
-            items: List[Item],
-        ) -> None:
+    def append_digest_if_needed() -> None:
         """
-        Append a digest to the output.
+        Append a digest to the output if there are items in the digest.
         """
-        date_str = current_date.strftime('%d %B %Y')
-        output_items.append(DigestItem(
-            title=f"Daily Digest for {date_str}",
-            description=f"Daily Digest for {date_str}",
-            pub_date=datetime.combine(current_date, datetime.min.time()), # The pub date is the start of the day to appear under the passed items in the feed.
-            items=items,
-            guid=f"daily-digest-{date_str}-{len(items)}" # GUID is updated when the new items are added.
-        ))
+        nonlocal current_date, daily_digest_items
+        if (current_date is not None) and len(daily_digest_items) > 0:
+            date_str = current_date.strftime('%d %B %Y')
+            if len(daily_digest_items) > 0:
+                output_items.append(DigestItem(
+                    title=f"Daily Digest for {date_str}",
+                    description=f"Daily Digest for {date_str}",
+                    pub_date=datetime.combine(current_date, datetime.min.time()), # The pub date is the start of the day to appear under the passed items in the feed.
+                    items=daily_digest_items,
+                    guid=f"daily-digest-{date_str}-{len(daily_digest_items)}" # GUID is updated when the new items are added.
+                ))
+        # Clear data for the next cycle.
         daily_digest_items.clear()
+        current_date = None
 
+    # Iterate over the original feed items and create a digest for each day.
     for item in processed_feed.feed.items:
         item_date = item.pub_date.date()
         # Make sure the current date is set.
@@ -51,12 +54,12 @@ def generate_feed(
             daily_digest_items.append(item)
         # If from a different day, finish the daily digest and start a new one with the current item.
         else:
-            append_digest(current_date, daily_digest_items)
+            append_digest_if_needed()
             daily_digest_items = [item]
             current_date = item_date
+            
     # Add the last daily digest to the output.
-    if len(daily_digest_items) > 0 and current_date is not None:
-        append_digest(current_date, daily_digest_items)
+    append_digest_if_needed()
         
     return OutputFeed(
         feed=processed_feed.feed,

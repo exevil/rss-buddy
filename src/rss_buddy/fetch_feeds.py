@@ -30,8 +30,7 @@ def fetch_feeds(
             link=parsed_feed.feed.link,
             description=parsed_feed.feed.description,
             language=parsed_feed.feed.language,
-            last_build_date=parsedate_to_datetime(parsed_feed.feed.updated),
-            ttl=int(parsed_feed.feed.get("ttl", 0))
+            last_build_date=parsedate_to_datetime(parsed_feed.feed.updated)
         )
 
         # Items.
