@@ -6,13 +6,21 @@ from datetime import datetime
 from email.utils import format_datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from models import OutputType, OutputPath
+from models import OutputType, OutputPath, Item, DigestItem
 
 def _rfc822(date: datetime) -> str:
     """
     Format a datetime object as an RFC 822 date string.
     """
     return format_datetime(date)
+
+def _is_item(obj: Any) -> bool:
+    """Check if object is an Item."""
+    return isinstance(obj, Item)
+
+def _is_digest_item(obj: Any) -> bool:
+    """Check if object is a DigestItem."""
+    return isinstance(obj, DigestItem)
 
 def generate_outputs(
     input: Any,
@@ -32,6 +40,8 @@ def generate_outputs(
     )
     # Add a custom filters to the environment
     env.filters["rfc822"] = _rfc822
+    env.filters["is_item"] = _is_item
+    env.filters["is_digest_item"] = _is_digest_item
 
     rendered_outputs = {}
     for output in outputs:

@@ -10,7 +10,7 @@
     <pubDate>{{ input.feed.metadata.last_build_date | rfc822 }}</pubDate>
 
     {% for item in input.items %}
-    {% if item.__class__.__name__ == 'Item' %}
+    {% if item | is_item %}
     <item>
         <title>{{ item.title }}</title>
         <description><![CDATA[
@@ -22,7 +22,7 @@
         <pubDate>{{ item.pub_date | rfc822 }}</pubDate>
         {% endif %}
     </item>
-    {% elif item.__class__.__name__ == 'DigestItem' %}
+    {% elif item | is_digest_item %}
     <item>
         <title>{{ item.title }}</title>
         <description><![CDATA[
@@ -32,6 +32,7 @@
         {{ digest_item.pub_date | rfc822 }}<br/><br/>
         {% endfor %}
         ]]></description>
+        <pubDate>{{ item.pub_date | rfc822 }}</pubDate>
         <guid isPermaLink="false">{{ item.guid }}</guid>
     </item>
     {% endif %}

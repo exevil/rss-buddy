@@ -10,14 +10,13 @@
     <p>{{ input.feed.metadata.description }}</p>
     <ul>
         {% for item in input.items %}
-        {% if item.__class__.__name__ == 'Item' %}
+        {% if item | is_item %}
         <li>
             <a href="{{ item.link }}">{{ item.title }}</a>
             <p>{{ item.description }}</p>
             {% if item.pub_date %} ({{ item.pub_date }}) {% endif %}
-            {% if item.tag %} [{{ item.tag }}] {% endif %}
         </li>
-        {% elif item.__class__.__name__ == 'DigestItem' %}
+        {% elif item | is_digest_item %}
         <li>
             <h2>{{ item.title }}</h2>
             <p>{{ item.description }}</p>

@@ -11,11 +11,8 @@ def generate_feed(
     """
     logging.info(f"Generating feed for {processed_feed.feed.metadata.title}, {len(processed_feed.passed_item_guids)} passed items, {len(processed_feed.failed_item_guids)} failed items")
 
-    # Sort feed items by day.
-    processed_feed.feed.items.sort(
-        key=lambda x: x.pub_date,
-        reverse=True
-    )
+    # Sort items newest first for processing
+    processed_feed.feed.items.sort(key=lambda x: x.pub_date, reverse=True)
     # Iterate over the original feed items and create a digest for each day.
     output_items: List[OutputItem] = []
     current_date: Optional[date] = None
@@ -28,14 +25,16 @@ def generate_feed(
         nonlocal current_date, daily_digest_items
         if (current_date is not None) and len(daily_digest_items) > 0:
             date_str = current_date.strftime('%d %B %Y')
-            if len(daily_digest_items) > 0:
-                output_items.append(DigestItem(
+            output_items.append(
+                DigestItem(
                     title=f"Daily Digest for {date_str}",
                     description=f"Daily Digest for {date_str}",
-                    pub_date=datetime.combine(current_date, datetime.min.time()), # The pub date is the start of the day to appear under the passed items in the feed.
+                    pub_date=daily_digest_items[-1].pub_date, # The pub date is the last item's pub date.
                     items=daily_digest_items,
                     guid=f"daily-digest-{date_str}-{len(daily_digest_items)}" # GUID is updated when the new items are added.
-                ))
+                )
+            )
+
         # Clear data for the next cycle.
         daily_digest_items.clear()
         current_date = None
@@ -57,7 +56,7 @@ def generate_feed(
             append_digest_if_needed()
             daily_digest_items = [item]
             current_date = item_date
-            
+
     # Add the last daily digest to the output.
     append_digest_if_needed()
         
